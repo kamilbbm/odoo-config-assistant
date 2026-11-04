@@ -2,12 +2,15 @@
 
 Skipped when Streamlit is not installed (it is installed in CI)."""
 
+from pathlib import Path
+
 import pytest
 
 app_testing = pytest.importorskip("streamlit.testing.v1")
+APP = Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py"
 
 
 def test_app_renders_without_exception():
-    at = app_testing.AppTest.from_file("app/streamlit_app.py", default_timeout=60).run()
+    at = app_testing.AppTest.from_file(str(APP), default_timeout=60).run()
     assert not at.exception
     assert [t.label for t in at.tabs] == ["Profil", "Plan", "Fiche étape", "Assistant", "Export"]
