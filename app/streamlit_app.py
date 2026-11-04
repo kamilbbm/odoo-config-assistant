@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from odoo_config_assistant import DOC_VERSION, ERP  # noqa: E402
-from odoo_config_assistant.assistant import answer, make_client  # noqa: E402
+from odoo_config_assistant.assistant import answer, load_env_file, make_client  # noqa: E402
 from odoo_config_assistant.engine import (  # noqa: E402
     IncompleteProfileError,
     PrerequisiteError,
@@ -58,6 +58,7 @@ CURRENCIES = ["USD", "EUR", "GBP", "MXN"]
 NEW_PROJECT = "+ Nouveau projet"
 
 st.set_page_config(page_title="Assistant de configuration Odoo", layout="wide")
+load_env_file(ROOT / ".env")
 
 
 @st.cache_resource
@@ -254,6 +255,9 @@ with tab_step:
         st.info("Aucun plan pour l'instant.")
     else:
         step_ids = [s.step_id for s in project.plan]
+        linked = st.query_params.get("step")  # lien direct : ?step=fin_taxes
+        if linked in step_ids and "step_id" not in st.session_state:
+            st.session_state["step_id"] = linked
         selected = st.selectbox(
             "Étape",
             step_ids,

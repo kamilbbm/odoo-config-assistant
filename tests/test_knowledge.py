@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from odoo_config_assistant.assistant import NOT_COVERED_MARKER, answer, make_client
+from odoo_config_assistant.assistant import NOT_COVERED_MARKER, answer, load_env_file, make_client
 from odoo_config_assistant.knowledge import (
     DEFAULT_INDEX_PATH,
     BM25Retriever,
@@ -174,6 +174,19 @@ def test_is_covered_requires_score_and_terms(retriever):
 def test_make_client_without_key_returns_none(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     assert make_client() is None
+
+
+def test_env_file_is_read_without_overriding_environment(tmp_path, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("CLAUDE_MODEL", "from-env")
+    env = tmp_path / ".env"
+    env.write_text("# commentaire\nANTHROPIC_API_KEY=sk-test\nCLAUDE_MODEL=from-file\nEMPTY=\n")
+    load_env_file(env)
+    import os
+
+    assert os.environ["ANTHROPIC_API_KEY"] == "sk-test"
+    assert os.environ["CLAUDE_MODEL"] == "from-env"
+    assert "EMPTY" not in os.environ
 
 
 # RG-007 -----------------------------------------------------------------------------------

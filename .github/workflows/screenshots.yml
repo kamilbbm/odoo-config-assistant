@@ -1,0 +1,34 @@
+name: Screenshots
+
+# Lancement manuel : capture l'interface sur le projet exemple et committe docs/img/*.png
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: |
+          pip install -e . playwright
+          python -m playwright install --with-deps chromium
+      - name: Fetch documentation and build index
+        run: |
+          python scripts/fetch_docs.py
+          python scripts/build_index.py
+      - name: Capture
+        run: python scripts/capture_screens.py
+      - name: Commit screenshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/img/*.png
+          git diff --cached --quiet || git commit -m "Captures d'écran de la démo (projet exemple)"
+          git push

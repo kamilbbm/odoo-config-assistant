@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from odoo_config_assistant import DOC_VERSION, ERP
@@ -73,6 +74,22 @@ def _context_block(hits: list[Hit]) -> str:
             f"{chunk.text}\n</extrait>"
         )
     return "\n\n".join(parts)
+
+
+def load_env_file(path: Path) -> None:
+    """Read KEY=VALUE lines of a .env file into os.environ, without overriding the environment.
+
+    The key stays outside the code and outside git (.env is ignored)."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        value = value.strip().strip('"').strip("'")
+        if value:
+            os.environ.setdefault(key.strip(), value)
 
 
 def make_client() -> Any | None:
