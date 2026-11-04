@@ -497,3 +497,24 @@ class Citation(BaseModel):
             f"{prefix}[{self.title}]({self.url}) · Odoo {self.version}, "
             f"commit `{self.commit[:7]}` · [{self.license}]({self.license_url})"
         )
+
+
+# --------------------------------------------------------------------------- doc version
+
+_ROOT = Path(__file__).resolve().parents[2]
+
+
+def current_doc_commit(index_path: Path = DEFAULT_INDEX_PATH) -> str | None:
+    """Commit of the documentation in use: index, then local clone, then verified commit."""
+    candidates = [
+        index_path,
+        _ROOT / "vendor" / "odoo-docs.version.json",
+        _ROOT / "data" / "doc_version.json",
+    ]
+    for path in candidates:
+        if path.exists():
+            try:
+                return json.loads(path.read_text(encoding="utf-8")).get("commit")
+            except ValueError:
+                continue
+    return None
