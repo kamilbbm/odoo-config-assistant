@@ -30,3 +30,6 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Secrets Streamlit (la configuration .streamlit/config.toml reste versionnée)
+.streamlit/secrets.toml

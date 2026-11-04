@@ -10,8 +10,8 @@ Connaissance, Configuration du projet client, Assistance et restitution.
 ```mermaid
 flowchart LR
     subgraph Connaissance
-        F[scripts/fetch_docs.py<br/>clone odoo/documentation 18.0]
-        B[scripts/build_index.py<br/>découpage RST par section]
+        F[sources.py, scripts/fetch_docs.py<br/>clone RST de odoo/documentation 18.0]
+        B[sources.py, scripts/build_index.py<br/>découpage RST par section]
         K[knowledge.py<br/>BM25, filtre de version, citations]
         Y[data/journeys/*.yaml<br/>référentiel de parcours]
         J[journeys.py<br/>chargement et validation]
@@ -38,7 +38,9 @@ flowchart LR
 
 ## Flux principal
 
-1. `fetch_docs.py` clone la branche 18.0 en mode superficiel et enregistre le commit.
+1. `fetch_docs.py` clone la branche 18.0 en mode superficiel et partiel (pages RST seulement)
+   et enregistre le commit. Si l'index manque, l'application fait ces deux étapes elle-même au
+   premier démarrage (`sources.ensure_index`, mis en cache par `st.cache_resource`).
 2. `build_index.py` découpe les pages RST de finance, inventory_and_mrp et des pages citées par
    les parcours en sections (une unité indexée par titre RST, avec son ancre), puis écrit
    `index/odoo-18.0.json`.

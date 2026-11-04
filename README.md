@@ -31,7 +31,27 @@ Projet exemple fictif : Atelier Boréal inc., PME manufacturière au Québec
 | **Assistant documentaire** | **Profil de l'entreprise** |
 | ![Réponse avec citations et licence](docs/img/03-assistant.png) | ![Questionnaire de profil](docs/img/04-profil.png) |
 
-Les captures sont produites par `scripts/capture_screens.py` (workflow manuel `Screenshots`).
+Les captures sont produites par `scripts/capture_screens.py` (workflow `Screenshots`).
+
+## Démo en ligne
+
+URL : _à compléter après le déploiement_ (`https://<nom-de-l-app>.streamlit.app`)
+
+L'application est prête pour [Streamlit Community Cloud](https://streamlit.io/cloud) :
+
+1. New app, dépôt `kamilbbm/odoo-config-assistant`, branche `main`, fichier principal
+   `app/streamlit_app.py`, Python 3.11 ou plus récent.
+2. Facultatif : dans Advanced settings, Secrets, ajouter `ANTHROPIC_API_KEY = "..."` pour les
+   réponses rédigées. Sans clé, l'assistant affiche les extraits classés.
+3. Déployer. Au premier démarrage, l'application télécharge les pages RST de la documentation
+   Odoo 18.0 (environ 16 Mo) et construit l'index, en quelques secondes ; le résultat est gardé
+   en cache (`st.cache_resource`) pour la durée de vie de l'instance.
+
+Les dépendances viennent de [requirements.txt](requirements.txt) et `git` de
+[packages.txt](packages.txt). Sur Community Cloud, le disque n'est pas persistant : les projets
+créés en ligne disparaissent au redémarrage de l'instance, seul le projet exemple est permanent.
+Le job CI `app-smoke` reproduit ce démarrage sur un dépôt neuf et échoue si les logs du serveur
+contiennent une erreur ou un avertissement.
 
 ## Ce que fait la V0
 
@@ -96,8 +116,9 @@ python scripts/build_index.py
 streamlit run app/streamlit_app.py
 ```
 
-`fetch_docs.py` télécharge la documentation (clone superficiel, environ 170 Mo) dans `vendor/`,
-qui n'est pas versionné. Pour activer les réponses rédigées, copier `.env.example` en `.env` ou
+`fetch_docs.py` télécharge les pages RST de la documentation (clone partiel, environ 16 Mo ;
+`--full` pour le dépôt complet) dans `vendor/`, qui n'est pas versionné. Les deux scripts sont
+facultatifs : si l'index est absent, l'application le construit à son premier démarrage. Pour activer les réponses rédigées, copier `.env.example` en `.env` ou
 exporter `ANTHROPIC_API_KEY` ; l'application fonctionne sans.
 
 Tests et contrôle du code :
@@ -122,7 +143,8 @@ src/odoo_config_assistant/
   assistant.py         réponse avec ou sans modèle de langage
   export.py            cahier de paramétrage Excel
   storage.py           un fichier JSON par projet
-scripts/               fetch_docs.py, build_index.py, capture_screens.py
+  sources.py           téléchargement de la documentation et construction de l'index
+scripts/               fetch_docs.py, build_index.py, smoke_app.py, capture_screens.py
 app/streamlit_app.py   interface en français
 ```
 

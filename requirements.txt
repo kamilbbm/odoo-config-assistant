@@ -1,0 +1,7 @@
+# Dépendances d'exécution pour Streamlit Community Cloud (alignées sur pyproject.toml,
+# vérifié par tests/test_deploy.py). L'application ajoute src/ au chemin d'import elle-même.
+pydantic>=2.6
+PyYAML>=6.0
+openpyxl>=3.1
+streamlit>=1.52
+anthropic>=0.40

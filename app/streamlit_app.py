@@ -5,6 +5,7 @@ Run: streamlit run app/streamlit_app.py
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -66,11 +67,33 @@ def get_catalog():
     return load_catalog()
 
 
-@st.cache_resource
-def get_retriever() -> BM25Retriever | None:
+@st.cache_resource(show_spinner=False)
+def get_retriever() -> BM25Retriever:
+    """Index chargé une fois par processus. Au premier démarrage (Streamlit Community Cloud),
+    la documentation est téléchargée et l'index construit. Une exception n'est pas mise en
+    cache : un échec sera retenté au rechargement suivant."""
+    if DEFAULT_INDEX_PATH.exists():
+        return BM25Retriever(KnowledgeIndex.load(DEFAULT_INDEX_PATH).chunks)
+    if os.environ.get("OCA_AUTO_FETCH", "1") == "0":
+        raise FileNotFoundError("index absent, téléchargement automatique désactivé")
+    from odoo_config_assistant.sources import ensure_index
+
+    return BM25Retriever(ensure_index().chunks)
+
+
+def load_retriever() -> tuple[BM25Retriever | None, str | None]:
     if not DEFAULT_INDEX_PATH.exists():
-        return None
-    return BM25Retriever(KnowledgeIndex.load(DEFAULT_INDEX_PATH).chunks)
+        message = "Premier démarrage : téléchargement de la documentation Odoo 18.0 et indexation"
+        with st.spinner(message):
+            return _try_retriever()
+    return _try_retriever()
+
+
+def _try_retriever() -> tuple[BM25Retriever | None, str | None]:
+    try:
+        return get_retriever(), None
+    except (OSError, RuntimeError, SystemExit, ValueError) as exc:
+        return None, str(exc)
 
 
 def save(project: Project) -> None:
@@ -95,7 +118,7 @@ def status_of(project: Project, step_id: str) -> StepStatus:
 # --------------------------------------------------------------------------- sidebar
 
 catalog = get_catalog()
-retriever = get_retriever()
+retriever, index_error = load_retriever()
 doc_commit = current_doc_commit()
 
 with st.sidebar:
@@ -116,7 +139,7 @@ with st.sidebar:
     st.caption("Documentation Odoo 18.0")
     st.caption(f"Commit : `{doc_commit[:12]}`" if doc_commit else "Commit inconnu")
     if retriever is None:
-        st.warning("Index absent : lancer `python scripts/fetch_docs.py` puis `build_index.py`.")
+        st.warning(f"Index indisponible ({index_error}).")
     else:
         st.caption(f"Index : {len(retriever.chunks)} sections")
     client = make_client()
@@ -248,7 +271,8 @@ with tab_plan:
                     "Identifiant": step.id,
                 }
             )
-        st.dataframe(rows, hide_index=True, use_container_width=True)
+        # Hauteur ajustée au contenu : toutes les étapes du plan sont visibles.
+        st.dataframe(rows, hide_index=True, width="stretch", height="content")
 
 # --------------------------------------------------------------------------- step sheet
 
@@ -345,7 +369,10 @@ with tab_assistant:
         "Les extraits sont en anglais."
     )
     if retriever is None:
-        st.warning("Index absent : lancer `python scripts/fetch_docs.py` puis `build_index.py`.")
+        st.warning(
+            "Index indisponible : lancer `python scripts/fetch_docs.py` puis "
+            f"`python scripts/build_index.py` ({index_error})."
+        )
     else:
         context_ids = [None] + ([s.step_id for s in project.plan] if project else [])
         with st.form("question"):

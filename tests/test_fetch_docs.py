@@ -48,3 +48,46 @@ def test_fetch_unknown_branch_is_err002(tmp_path, local_docs_repo):
 def test_fetch_unreachable_repo_is_err001(tmp_path):
     with pytest.raises(SystemExit, match="ERR-001"):
         fetch(tmp_path / "docs", "18.0", repo=(tmp_path / "missing").as_uri())
+
+
+def test_rst_only_clone_skips_other_files(tmp_path, local_docs_repo):
+    (local_docs_repo / "content" / "image.png").write_bytes(b"png")
+    run("git", "add", ".", cwd=local_docs_repo)
+    run(
+        "git",
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.org",
+        "commit",
+        "-q",
+        "-m",
+        "image",
+        cwd=local_docs_repo,
+    )
+    dest = tmp_path / "docs"
+    fetch(dest, "18.0", repo=local_docs_repo.as_uri())
+    assert (dest / "content" / "page.rst").is_file()
+    assert not (dest / "content" / "image.png").exists()
+    full = tmp_path / "full"
+    fetch(full, "18.0", repo=local_docs_repo.as_uri(), rst_only=False)
+    assert (full / "content" / "image.png").is_file()
+
+
+def test_ensure_index_downloads_and_builds_once(tmp_path, local_docs_repo, monkeypatch):
+    from odoo_config_assistant import sources
+
+    monkeypatch.setattr(sources, "REPO_URL", local_docs_repo.as_uri())
+    calls = []
+    real_fetch = sources.fetch_docs
+
+    def fake_fetch(dest, *args, **kwargs):
+        calls.append(dest)
+        return real_fetch(dest, "18.0", local_docs_repo.as_uri())
+
+    monkeypatch.setattr(sources, "fetch_docs", fake_fetch)
+    docs, out = tmp_path / "vendor" / "odoo-docs", tmp_path / "index" / "idx.json"
+    index = sources.ensure_index(docs, out)
+    assert out.exists() and index.commit and len(calls) == 1
+    assert sources.ensure_index(docs, out).commit == index.commit
+    assert len(calls) == 1

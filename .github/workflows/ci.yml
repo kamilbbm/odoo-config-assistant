@@ -38,3 +38,20 @@ jobs:
         run: python scripts/build_index.py
       - name: Pytest against the documentation
         run: pytest tests/test_journeys_data.py tests/test_knowledge.py
+
+  app-smoke:
+    # Démarre l'app en mode headless sur un dépôt neuf, comme sur Streamlit Community Cloud :
+    # téléchargement de la doc et indexation au premier démarrage, parcours des onglets,
+    # échec si les logs du serveur contiennent une erreur ou un avertissement.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install (requirements.txt, as on Community Cloud)
+        run: |
+          pip install -r requirements.txt playwright
+          python -m playwright install --with-deps chromium
+      - name: Smoke test
+        run: python scripts/smoke_app.py
