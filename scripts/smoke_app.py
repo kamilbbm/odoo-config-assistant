@@ -73,7 +73,11 @@ def main() -> int:
                 page.get_by_role("button", name="Demander").click()
                 page.get_by_text("Writing checks", exact=False).first.wait_for(timeout=30000)
                 body = page.inner_text("body")
-                if "Atelier Boréal" not in body:
+                page.get_by_role("tab", name="Plan").click()
+                settle(page)
+                # Les métriques du plan ne s'affichent que si un projet est ouvert
+                # (le nom du projet est dans un champ, absent de innerText).
+                if "Faites ou validées" not in page.inner_text("body"):
                     problems.append("le projet exemple n'est pas ouvert")
                 if "Index indisponible" in body:
                     problems.append("index indisponible")
