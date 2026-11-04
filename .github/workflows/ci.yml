@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev,llm]"
+      - name: Ruff
+        run: ruff check .
+      - name: Pytest
+        run: pytest
+
+  docs-truth:
+    # Vérifie chaque source, ancre et chemin de menu des parcours contre odoo/documentation 18.0.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Fetch Odoo documentation 18.0
+        run: python scripts/fetch_docs.py
+      - name: Build index
+        run: python scripts/build_index.py
+      - name: Pytest against the documentation
+        run: pytest tests/test_journeys_data.py tests/test_knowledge.py
+
+  app-smoke:
+    # Démarre l'app en mode headless sur un dépôt neuf, comme sur Streamlit Community Cloud :
+    # téléchargement de la doc et indexation au premier démarrage, parcours des onglets,
+    # échec si les logs du serveur contiennent une erreur ou un avertissement.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install (requirements.txt, as on Community Cloud)
+        run: |
+          pip install -r requirements.txt playwright
+          python -m playwright install --with-deps chromium
+      - name: Smoke test
+        run: python scripts/smoke_app.py

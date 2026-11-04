@@ -1,0 +1,35 @@
+# Secrets
+.env
+
+# Documentation Odoo téléchargée par scripts/fetch_docs.py
+vendor/
+
+# Index de recherche construit par scripts/build_index.py
+index/
+
+# Projets clients (seul l'exemple est versionné)
+projects/*
+!projects/exemple.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Exports générés
+*.xlsx
+!tests/fixtures/*.xlsx
+
+# Éditeurs et OS
+.vscode/
+.idea/
+.DS_Store
+
+# Secrets Streamlit (la configuration .streamlit/config.toml reste versionnée)
+.streamlit/secrets.toml

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "odoo-config-assistant"
+version = "0.1.0"
+description = "Assistant de configuration Odoo 18 : plan ordonné par prérequis, fiches étapes sourcées, cahier de paramétrage."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Kamil Baba-Moussa" }]
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "PyYAML>=6.0",
+    "openpyxl>=3.1",
+    "streamlit>=1.52",
+]
+
+[project.optional-dependencies]
+llm = ["anthropic>=0.40"]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts", "app"]
+extend-exclude = ["vendor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["odoo_config_assistant", "scripts"]
