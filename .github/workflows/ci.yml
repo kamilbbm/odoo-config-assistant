@@ -21,3 +21,20 @@ jobs:
         run: ruff check .
       - name: Pytest
         run: pytest
+
+  docs-truth:
+    # Vérifie chaque source, ancre et chemin de menu des parcours contre odoo/documentation 18.0.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Fetch Odoo documentation 18.0
+        run: python scripts/fetch_docs.py
+      - name: Build index
+        run: python scripts/build_index.py
+      - name: Pytest against the documentation
+        run: pytest tests/test_journeys_data.py tests/test_knowledge.py

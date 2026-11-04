@@ -1,0 +1,6 @@
+{
+  "repo": "https://github.com/odoo/documentation",
+  "branch": "18.0",
+  "commit": "ca129a822019682bd32552e4cbabba2520d1308e",
+  "note": "Commit de la documentation contre lequel les parcours de data/journeys ont été vérifiés."
+}
