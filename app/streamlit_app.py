@@ -105,7 +105,10 @@ with st.sidebar:
     labels = [NEW_PROJECT] + [f"{p.name} ({p.id})" for p in projects]
     ids = [None] + [p.id for p in projects]
     current_id = st.session_state.get("project_id")
-    index = ids.index(current_id) if current_id in ids else (1 if projects else 0)
+    if current_id is not None and current_id in ids:
+        index = ids.index(current_id)
+    else:
+        index = 1 if projects else 0  # dernier projet modifié, sinon nouveau projet
     choice = st.selectbox("Projet", labels, index=index)
     st.session_state["project_id"] = ids[labels.index(choice)]
 
