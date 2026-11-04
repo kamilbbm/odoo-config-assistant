@@ -76,7 +76,12 @@ def main(argv: list[str] | None = None) -> int:
             page.goto(BASE)
             settle(page)
             open_tab(page, "Plan")
+            # Streamlit défile dans son propre conteneur : on agrandit la fenêtre pour que les
+            # 36 étapes du plan tiennent sur la capture.
+            page.set_viewport_size({"width": 1440, "height": 2150})
+            settle(page)
             page.screenshot(path=args.out / "01-plan.png", full_page=True)
+            page.set_viewport_size({"width": 1440, "height": 960})
 
             page.goto(f"{BASE}/?step=fin_taxes")
             settle(page)
