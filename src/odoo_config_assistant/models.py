@@ -318,6 +318,7 @@ class ProjectStep(BaseModel):
     retained_value: str | None = None
     comment: str = ""
     doc_commit: str | None = None
+    status_before_out_of_scope: StepStatus | None = None
     updated_at: datetime = Field(default_factory=_now)
 
 
