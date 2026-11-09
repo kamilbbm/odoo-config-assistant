@@ -6,8 +6,12 @@
 > citations from the official Odoo documentation, and exports a configuration workbook to Excel.
 > Two journeys: Finance for a Quebec company (GST/QST) and Inventory and manufacturing for a small
 > manufacturer. Every step is checked against the odoo/documentation 18.0 repository by tests.
+> Live demo: https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/
 
 [![CI](https://github.com/kamilbbm/odoo-config-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/kamilbbm/odoo-config-assistant/actions/workflows/ci.yml)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/)
+
+**Démo en ligne : [odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app](https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/)**
 
 ## Le problème
 
@@ -35,9 +39,13 @@ Les captures sont produites par `scripts/capture_screens.py` (workflow `Screensh
 
 ## Démo en ligne
 
-URL : _à compléter après le déploiement_ (`https://<nom-de-l-app>.streamlit.app`)
+L'application est déployée sur Streamlit Community Cloud, branche `main` :
+[https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/](https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/)
 
-L'application est prête pour [Streamlit Community Cloud](https://streamlit.io/cloud) :
+Elle s'ouvre sur le projet exemple Atelier Boréal. Une instance en veille met une à deux
+minutes à redémarrer à la première visite.
+
+Pour redéployer sur [Streamlit Community Cloud](https://streamlit.io/cloud) :
 
 1. New app, dépôt `kamilbbm/odoo-config-assistant`, branche `main`, fichier principal
    `app/streamlit_app.py`, Python 3.11 ou plus récent.
