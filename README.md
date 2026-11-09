@@ -26,8 +26,13 @@ fonctionnelle complète (V1 cible) est dans [docs/SFD.md](docs/SFD.md).
 
 ## Démo
 
-Projet exemple fictif : Atelier Boréal inc., PME manufacturière au Québec
-([projects/exemple.json](projects/exemple.json)).
+Deux projets exemples fictifs, à choisir dans la liste des projets :
+
+- Atelier Boréal inc., PME manufacturière au Québec ([projects/exemple.json](projects/exemple.json)),
+  ouvert par défaut ;
+- Cabinet Vauban Conseil SAS, société de conseil à Lille
+  ([projects/exemple-fr.json](projects/exemple-fr.json)) : parcours Finance France avec
+  prélèvement SEPA, Chorus Pro et reprise de l'historique par FEC.
 
 | Plan de configuration | Fiche étape |
 | --- | --- |
@@ -42,7 +47,8 @@ Les captures sont produites par `scripts/capture_screens.py` (workflow `Screensh
 L'application est déployée sur Streamlit Community Cloud, branche `main` :
 [https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/](https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/)
 
-Elle s'ouvre sur le projet exemple Atelier Boréal. Une instance en veille met une à deux
+Elle s'ouvre sur le projet exemple Atelier Boréal ; le projet Cabinet Vauban se choisit dans la
+liste des projets. Une instance en veille met une à deux
 minutes à redémarrer à la première visite.
 
 Pour redéployer sur [Streamlit Community Cloud](https://streamlit.io/cloud) :
@@ -57,7 +63,7 @@ Pour redéployer sur [Streamlit Community Cloud](https://streamlit.io/cloud) :
 
 Les dépendances viennent de [requirements.txt](requirements.txt) et `git` de
 [packages.txt](packages.txt). Sur Community Cloud, le disque n'est pas persistant : les projets
-créés en ligne disparaissent au redémarrage de l'instance, seul le projet exemple est permanent.
+créés en ligne disparaissent au redémarrage de l'instance, seuls les projets exemples sont permanents.
 Le job CI `app-smoke` reproduit ce démarrage sur un dépôt neuf et échoue si les logs du serveur
 contiennent une erreur ou un avertissement.
 

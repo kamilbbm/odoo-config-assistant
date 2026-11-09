@@ -38,5 +38,5 @@ approuvé par elle.
 
 ## Données
 
-Les données de démonstration (« Atelier Boréal inc. », projet `projects/exemple.json`) sont
-entièrement fictives.
+Les données de démonstration (« Atelier Boréal inc. », projet `projects/exemple.json`, et
+« Cabinet Vauban Conseil SAS », projet `projects/exemple-fr.json`) sont entièrement fictives.

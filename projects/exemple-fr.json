@@ -1,0 +1,243 @@
+{
+  "id": "exemple-fr",
+  "name": "Cabinet Vauban : comptabilité Odoo 18",
+  "erp": "odoo",
+  "version": "18.0",
+  "profile": {
+    "company_name": "Cabinet Vauban Conseil SAS",
+    "country": "FR",
+    "province": null,
+    "activity": "services",
+    "size": "small",
+    "tax_regime": "Réel normal (TVA mensuelle)",
+    "modules": [
+      "account",
+      "sale"
+    ],
+    "fiscal_year_end": "12-31",
+    "foreign_currencies": [
+      "USD"
+    ],
+    "uses_checks": false,
+    "tracks_lots": false,
+    "make_to_order": false,
+    "uses_direct_debit": true,
+    "b2g_invoicing": true,
+    "imports_fec_history": true
+  },
+  "plan": [
+    {
+      "step_id": "frf_company",
+      "journey_id": "finance_fr",
+      "order": 0,
+      "status": "validated",
+      "retained_value": "Cabinet Vauban Conseil SAS, 12 rue des Remparts, 59000 Lille",
+      "comment": "Données fictives de démonstration.",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_localization",
+      "journey_id": "finance_fr",
+      "order": 1,
+      "status": "validated",
+      "retained_value": "France - Accounting (l10n_fr_account)",
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_main_currency",
+      "journey_id": "finance_fr",
+      "order": 2,
+      "status": "done",
+      "retained_value": "EUR",
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_foreign_currencies",
+      "journey_id": "finance_fr",
+      "order": 3,
+      "status": "done",
+      "retained_value": "USD",
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_fiscal_year",
+      "journey_id": "finance_fr",
+      "order": 4,
+      "status": "done",
+      "retained_value": "31 décembre",
+      "comment": "Date des statuts, confirmée par l'expert-comptable.",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_chart_of_accounts",
+      "journey_id": "finance_fr",
+      "order": 5,
+      "status": "done",
+      "retained_value": "Plan comptable de la localisation, sous-comptes 706 par ligne de service",
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_taxes",
+      "journey_id": "finance_fr",
+      "order": 6,
+      "status": "done",
+      "retained_value": "TVA 20 % vente et achat ; 10 % et 5,5 % désactivées",
+      "comment": "Prestations intellectuelles au taux normal.",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_fiscal_positions",
+      "journey_id": "finance_fr",
+      "order": 7,
+      "status": "in_progress",
+      "retained_value": null,
+      "comment": "Un client belge : vérifier l'autoliquidation.",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_tax_periodicity",
+      "journey_id": "finance_fr",
+      "order": 8,
+      "status": "todo",
+      "retained_value": null,
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_journals",
+      "journey_id": "finance_fr",
+      "order": 9,
+      "status": "in_progress",
+      "retained_value": null,
+      "comment": "Journal de banque secondaire à créer.",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_bank_account",
+      "journey_id": "finance_fr",
+      "order": 10,
+      "status": "todo",
+      "retained_value": null,
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_sepa",
+      "journey_id": "finance_fr",
+      "order": 11,
+      "status": "todo",
+      "retained_value": null,
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_opening_balances",
+      "journey_id": "finance_fr",
+      "order": 12,
+      "status": "todo",
+      "retained_value": null,
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_payment_terms",
+      "journey_id": "finance_fr",
+      "order": 13,
+      "status": "todo",
+      "retained_value": null,
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_e_invoicing",
+      "journey_id": "finance_fr",
+      "order": 14,
+      "status": "in_progress",
+      "retained_value": null,
+      "comment": "Authentification du représentant légal planifiée.",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_chorus_pro",
+      "journey_id": "finance_fr",
+      "order": 15,
+      "status": "todo",
+      "retained_value": null,
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_tax_report",
+      "journey_id": "finance_fr",
+      "order": 16,
+      "status": "todo",
+      "retained_value": null,
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_fec_export",
+      "journey_id": "finance_fr",
+      "order": 17,
+      "status": "todo",
+      "retained_value": null,
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    },
+    {
+      "step_id": "frf_year_end",
+      "journey_id": "finance_fr",
+      "order": 18,
+      "status": "todo",
+      "retained_value": null,
+      "comment": "",
+      "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+      "status_before_out_of_scope": null,
+      "updated_at": "2026-11-04T14:00:00Z"
+    }
+  ],
+  "doc_commit": "221e829ac894c79b0f270892c1e02425a0ef4214",
+  "derived_from": null,
+  "created_at": "2026-11-04T14:00:00Z",
+  "updated_at": "2026-11-04T14:00:00Z"
+}
