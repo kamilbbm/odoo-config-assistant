@@ -4,8 +4,8 @@
 > company profile; the app builds a configuration plan ordered by prerequisites, shows one sheet
 > per step (goal, menu path, recommended value, sources), tracks progress, answers questions with
 > citations from the official Odoo documentation, and exports a configuration workbook to Excel.
-> Two journeys: Finance for a Quebec company (GST/QST) and Inventory and manufacturing for a small
-> manufacturer. Every step is checked against the odoo/documentation 18.0 repository by tests.
+> Three journeys: Finance for a Quebec company (GST/QST), Finance for a French company (VAT,
+> SEPA, e-invoicing, FEC) and Inventory and manufacturing for a small manufacturer. Every step is checked against the odoo/documentation 18.0 repository by tests.
 > Live demo: https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/
 
 [![CI](https://github.com/kamilbbm/odoo-config-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/kamilbbm/odoo-config-assistant/actions/workflows/ci.yml)
@@ -64,13 +64,18 @@ contiennent une erreur ou un avertissement.
 ## Ce que fait la V0
 
 - **Profil de l'entreprise** : pays, province, activité, taille, modules souhaités, options
-  (devises étrangères, chèques, lots, fabrication à la commande).
+  (devises étrangères, chèques, lots, fabrication à la commande ; pour la France, prélèvement
+  SEPA, clients publics via Chorus Pro, reprise de l'historique par FEC).
 - **Plan ordonné** : filtrage des étapes applicables au profil, tri topologique des prérequis,
   détection des cycles et des prérequis inexistants au chargement du référentiel.
-- **Deux parcours, 37 étapes** dans [data/journeys](data/journeys) :
+- **Trois parcours, 56 étapes** dans [data/journeys](data/journeys) :
   - Finance, société québécoise (18 étapes) : localisation canadienne, TPS et TVQ, positions
     fiscales par province, plan comptable, journaux, comptes bancaires, soldes d'ouverture,
     exercice fiscal, devise, conditions de paiement, chèques, verrouillage, rapports.
+  - Finance, société française (19 étapes) : localisation française, TVA et positions fiscales,
+    plan comptable, journaux, comptes bancaires, paiements SEPA (virement et prélèvement), soldes
+    d'ouverture ou import FEC, conditions de paiement, facturation électronique par plateforme
+    agréée, Chorus Pro, rapport de TVA, export FEC, liasse fiscale et verrouillage.
   - Inventaire et fabrication (19 étapes) : entrepôt et emplacements, routes, réceptions et
     livraisons, unités de mesure, catégories et valorisation, composants achetés, lots, postes de
     travail, nomenclatures, réapprovisionnement, fabrication à la commande, stock initial, ordre

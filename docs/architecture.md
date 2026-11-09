@@ -1,8 +1,8 @@
 # Architecture de la V0
 
 La V0 est une tranche verticale de la SFD ([SFD.md](SFD.md)) : du profil de l'entreprise au
-cahier de paramétrage, pour Odoo 18 et deux parcours (Finance au Québec, Inventaire et
-fabrication). Elle reprend les trois couches du schéma fonctionnel de la SFD (2.1.3) :
+cahier de paramétrage, pour Odoo 18 et trois parcours (Finance au Québec, Finance en France,
+Inventaire et fabrication). Elle reprend les trois couches du schéma fonctionnel de la SFD (2.1.3) :
 Connaissance, Configuration du projet client, Assistance et restitution.
 
 ## Modules

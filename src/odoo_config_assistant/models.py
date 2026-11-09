@@ -94,6 +94,9 @@ class Profile(BaseModel):
     uses_checks: bool = False
     tracks_lots: bool = False
     make_to_order: bool = False
+    uses_direct_debit: bool = False
+    b2g_invoicing: bool = False
+    imports_fec_history: bool = False
 
     @field_validator("country", "province")
     @classmethod
@@ -127,7 +130,14 @@ REQUIRED_FIELD_LABELS = {
 }
 
 _LIST_FIELDS = {"modules", "foreign_currencies"}
-_BOOL_FIELDS = {"uses_checks", "tracks_lots", "make_to_order"}
+_BOOL_FIELDS = {
+    "uses_checks",
+    "tracks_lots",
+    "make_to_order",
+    "uses_direct_debit",
+    "b2g_invoicing",
+    "imports_fec_history",
+}
 
 
 class Condition(RootModel[dict[str, Any]]):

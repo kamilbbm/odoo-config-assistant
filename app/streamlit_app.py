@@ -55,7 +55,7 @@ MODULE_LABELS = {
     "purchase": "Achats (purchase)",
     "sale": "Ventes (sale)",
 }
-CURRENCIES = ["USD", "EUR", "GBP", "MXN"]
+CURRENCIES = ["USD", "EUR", "CAD", "GBP", "CHF", "MXN"]
 NEW_PROJECT = "+ Nouveau projet"
 
 st.set_page_config(page_title="Assistant de configuration Odoo", layout="wide")
@@ -197,6 +197,16 @@ with tab_profile:
         uses_checks = st.checkbox("Paiement des fournisseurs par chèque", profile.uses_checks)
         tracks_lots = st.checkbox("Suivi par lots", profile.tracks_lots)
         make_to_order = st.checkbox("Fabrication à la commande", profile.make_to_order)
+        st.caption("Options France")
+        uses_direct_debit = st.checkbox(
+            "Encaissement des clients par prélèvement SEPA", profile.uses_direct_debit
+        )
+        b2g_invoicing = st.checkbox(
+            "Clients du secteur public (factures via Chorus Pro)", profile.b2g_invoicing
+        )
+        imports_fec_history = st.checkbox(
+            "Reprise de l'historique comptable par fichier FEC", profile.imports_fec_history
+        )
         submitted = st.form_submit_button("Enregistrer et calculer le plan")
 
     if submitted:
@@ -214,6 +224,9 @@ with tab_profile:
                 uses_checks=uses_checks,
                 tracks_lots=tracks_lots,
                 make_to_order=make_to_order,
+                uses_direct_debit=uses_direct_debit,
+                b2g_invoicing=b2g_invoicing,
+                imports_fec_history=imports_fec_history,
             )
         except ValueError as exc:
             st.error(f"Profil invalide : {exc}")

@@ -42,8 +42,8 @@ def boreal_profile(**changes) -> Profile:
     return profile.model_copy(update=changes)
 
 
-def test_both_journeys_are_loaded_for_odoo_18():
-    assert {j.id for j in CATALOG.journeys} == {"finance_qc", "inventory_mrp"}
+def test_all_journeys_are_loaded_for_odoo_18():
+    assert {j.id for j in CATALOG.journeys} == {"finance_qc", "finance_fr", "inventory_mrp"}
     assert all(j.erp == "odoo" and j.version == "18.0" for j in CATALOG.journeys)
 
 
@@ -184,3 +184,59 @@ def test_menu_path_appears_verbatim_in_a_cited_source(journey, step):
         if len(step.menu_items) > 2 and tail in menus and app in _normalized(DOCS / source.path):
             return
     pytest.fail(f"{step.id} : menu « {step.menu_path} » absent des sources citées")
+
+
+# Finance France (US-001) -----------------------------------------------------------------
+
+
+def france_services_profile(**changes) -> Profile:
+    profile = Profile(
+        company_name="Conseil Exemple SAS",
+        country="FR",
+        activity=Activity.SERVICES,
+        size=CompanySize.SMALL,
+        modules=["account"],
+    )
+    return profile.model_copy(update=changes)
+
+
+def test_us001_french_services_company_gets_the_finance_france_journey_in_order():
+    plan = generate_plan(france_services_profile(), CATALOG)
+    ids = step_ids_from(plan)
+    assert ids and all(i.startswith("frf_") for i in ids)
+    assert ids[0] == "frf_company"
+    position = {step_id: i for i, step_id in enumerate(ids)}
+    for step_id in ids:
+        for prerequisite in CATALOG.step(step_id).prerequisites:
+            if prerequisite in position:
+                assert position[prerequisite] < position[step_id], (prerequisite, step_id)
+    assert position["frf_localization"] < position["frf_taxes"] < position["frf_tax_report"]
+
+
+def test_quebec_company_gets_no_finance_france_journey():
+    ids = step_ids_from(generate_plan(boreal_profile(), CATALOG))
+    assert not any(i.startswith("frf_") for i in ids)
+
+
+def test_france_optional_steps_follow_the_profile():
+    base = set(step_ids_from(generate_plan(france_services_profile(), CATALOG)))
+    assert not base & {"frf_chorus_pro", "frf_foreign_currencies"}
+    full = france_services_profile(b2g_invoicing=True, foreign_currencies=["USD"])
+    extended = set(step_ids_from(generate_plan(full, CATALOG)))
+    assert extended - base == {"frf_chorus_pro", "frf_foreign_currencies"}
+
+
+def test_france_recommendations_depend_on_the_profile():
+    sepa = CATALOG.step("frf_sepa")
+    assert "Direct Debit" not in sepa.recommendation_for(france_services_profile()).value
+    debit = france_services_profile(uses_direct_debit=True)
+    assert "Creditor Identifier" in sepa.recommendation_for(debit).value
+    opening = CATALOG.step("frf_opening_balances")
+    assert "Import FEC" in opening.recommendation_for(
+        france_services_profile(imports_fec_history=True)
+    ).value
+    assert not opening.recommendation_for(france_services_profile()).verified
+
+
+def test_french_vat_rates_are_not_presented_as_verified():
+    assert all(not r.verified for r in CATALOG.step("frf_taxes").recommendations)

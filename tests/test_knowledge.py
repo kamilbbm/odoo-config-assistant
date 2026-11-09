@@ -279,3 +279,20 @@ def test_real_index_does_not_cover_quebec_payroll_or_qst_rate():
     retriever = BM25Retriever(KnowledgeIndex.load().chunks)
     for question in ("Comment configurer la paie au Québec ?", "Quel est le taux de la TVQ ?"):
         assert not answer(question, retriever, country="CA").covered
+
+
+@real_index
+@pytest.mark.parametrize(
+    ("question", "section"),
+    [
+        ("Comment activer la facturation électronique en France ?", "Configuration"),
+        ("Comment générer le FEC ?", "FEC Export"),
+        ("Comment transmettre la liasse fiscale ?", "Liasse fiscale"),
+    ],
+)
+def test_real_index_answers_france_questions(question, section):
+    retriever = BM25Retriever(KnowledgeIndex.load().chunks)
+    result = answer(question, retriever, country="FR")
+    assert result.covered
+    assert result.citations[0].path.endswith("fiscal_localizations/france.rst")
+    assert result.citations[0].title == f"France : {section}"
