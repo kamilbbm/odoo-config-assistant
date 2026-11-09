@@ -36,12 +36,14 @@ from odoo_config_assistant.knowledge import (  # noqa: E402
 )
 from odoo_config_assistant.models import (  # noqa: E402
     ACTIVITY_LABELS,
+    EDITION_LABELS,
     LICENSE_NOTICE,
     LICENSE_URL,
     REQUIRED_FIELD_LABELS,
     SIZE_LABELS,
     Activity,
     CompanySize,
+    Edition,
     Profile,
     Project,
     StepStatus,
@@ -182,6 +184,14 @@ with tab_profile:
             index=sizes.index(profile.size),
             format_func=lambda s: "Non renseignée" if s is None else SIZE_LABELS[s],
         )
+        editions = [None, *Edition]
+        edition = col1.selectbox(
+            "Édition Odoo",
+            editions,
+            index=editions.index(profile.edition),
+            format_func=lambda e: "Non précisée" if e is None else EDITION_LABELS[e],
+            help="En Community, les étapes qui exigent un module Enterprise sont hors plan.",
+        )
         modules = st.multiselect(
             "Modules souhaités *",
             list(MODULE_LABELS),
@@ -217,6 +227,7 @@ with tab_profile:
                 province=province,
                 activity=activity,
                 size=size,
+                edition=edition,
                 tax_regime=tax_regime or None,
                 modules=modules,
                 fiscal_year_end=fiscal_year_end,
@@ -281,6 +292,7 @@ with tab_plan:
                     "Statut": item.status.label,
                     "Prérequis bloquants": ", ".join(info.blocking),
                     "À confirmer": "" if rec.verified else "À confirmer",
+                    "Édition": "Enterprise" if catalog.enterprise_modules(step) else "",
                     "Identifiant": step.id,
                 }
             )
@@ -313,8 +325,22 @@ with tab_step:
 
         st.subheader(step.title)
         st.write(step.objective)
+        enterprise = catalog.enterprise_modules(step)
+        if enterprise:
+            st.markdown(
+                f":violet[**Enterprise**] module(s) absent(s) de l'édition Community : "
+                f"{', '.join(f'`{m}`' for m in enterprise)}"
+            )
         st.markdown("**Chemin de menu**")
         st.code(step.menu_path, language=None)
+        if (
+            project.profile.edition is Edition.COMMUNITY
+            and step.menu_items[0].removesuffix(" app") == "Accounting"
+        ):
+            st.caption(
+                "En Community, l'application comptable s'appelle Invoicing (Facturation) : "
+                "le chemin commence par Invoicing au lieu d'Accounting."
+            )
         st.markdown("**Valeur recommandée**")
         st.write(rec.value)
         if not rec.verified:

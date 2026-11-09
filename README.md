@@ -98,6 +98,21 @@ contiennent une erreur ou un avertissement.
 - **Cahier de paramétrage Excel** : une ligne par étape, statut, valeur recommandée, colonne
   « À confirmer », valeur retenue, commentaire, sources, commit de la documentation.
 
+### Éditions Community et Enterprise
+
+Le profil précise l'édition d'Odoo (question Q-008 de la SFD). Chaque étape déclare les modules
+techniques dont elle a besoin ; un module absent du dépôt public
+[odoo/odoo](https://github.com/odoo/odoo) 18.0 relève de l'édition Enterprise. La liste des
+modules Community est extraite par `scripts/fetch_editions.py` dans
+[data/editions.json](data/editions.json), avec le commit utilisé.
+
+- Édition Community : les étapes qui exigent un module Enterprise sont hors plan (rapports et
+  déclaration de taxes `account_reports`, exercice fiscal et verrouillage `account_accountant`,
+  paiements SEPA `account_iso20022`, rapports et chèques canadiens, export FEC) ; la fiche étape
+  rappelle que l'application comptable s'y appelle Invoicing.
+- Édition Enterprise ou non précisée : toutes les étapes restent au plan ; celles qui exigent
+  Enterprise portent la mention « Enterprise » dans le plan, la fiche et le cahier.
+
 ### Véracité du contenu
 
 Le contenu des parcours vient de la documentation officielle (dépôt
@@ -163,7 +178,8 @@ src/odoo_config_assistant/
   export.py            cahier de paramétrage Excel
   storage.py           un fichier JSON par projet
   sources.py           téléchargement de la documentation et construction de l'index
-scripts/               fetch_docs.py, build_index.py, smoke_app.py, capture_screens.py
+scripts/               fetch_docs.py, fetch_editions.py, build_index.py, smoke_app.py,
+                       capture_screens.py
 app/streamlit_app.py   interface en français
 ```
 

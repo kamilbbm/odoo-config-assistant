@@ -16,6 +16,7 @@ from openpyxl.utils import get_column_letter
 
 from odoo_config_assistant.models import (
     ACTIVITY_LABELS,
+    EDITION_LABELS,
     LICENSE_NOTICE,
     LICENSE_URL,
     SIZE_LABELS,
@@ -41,6 +42,7 @@ COLUMNS: list[tuple[str, int]] = [
     ("Sources", 60),
     ("Version documentaire (commit)", 44),
     ("Mis à jour le", 18),
+    ("Édition Odoo requise", 30),
 ]
 
 _HEADER_FILL = PatternFill("solid", fgColor="1F4E78")
@@ -101,6 +103,7 @@ def _plan_sheet(sheet, project: Project, catalog: Catalog) -> None:
             sources,
             item.doc_commit or project.doc_commit or "",
             item.updated_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M"),
+            catalog.edition_label(step),
         ]
         for col, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=col, value=value)
@@ -124,6 +127,7 @@ def _project_sheet(sheet, project: Project) -> None:
         ("Pays / province", f"{profile.country or ''} / {profile.province or ''}"),
         ("Activité", ACTIVITY_LABELS.get(profile.activity, "") if profile.activity else ""),
         ("Taille", SIZE_LABELS.get(profile.size, "") if profile.size else ""),
+        ("Édition Odoo", EDITION_LABELS[profile.edition] if profile.edition else "Non précisée"),
         ("Modules", ", ".join(profile.modules)),
         ("Fin d'exercice", profile.fiscal_year_end),
         ("Documentation Odoo (commit)", project.doc_commit or ""),

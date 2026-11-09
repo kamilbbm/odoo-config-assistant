@@ -1,4 +1,5 @@
 from io import BytesIO
+from pathlib import Path
 
 from openpyxl import load_workbook
 
@@ -6,6 +7,7 @@ from odoo_config_assistant.engine import create_project, recompute_plan, set_sta
 from odoo_config_assistant.export import COLUMNS, TO_CONFIRM, export_bytes, export_file
 from odoo_config_assistant.journeys import load_catalog
 from odoo_config_assistant.models import Activity, Profile, StepStatus
+from odoo_config_assistant.storage import load_project
 
 COMMIT = "ca129a822019682bd32552e4cbabba2520d1308e"
 CATALOG = load_catalog()
@@ -86,3 +88,13 @@ def test_project_sheet_mentions_commit_and_license(tmp_path):
     assert values["Documentation Odoo (commit)"] == COMMIT
     assert "CC BY-SA 4.0" in values["Licence des contenus cités"]
     assert values["Société"] == "Atelier Boréal inc."
+
+
+def test_export_shows_the_required_edition():
+    project = load_project("exemple-fr", Path(__file__).resolve().parents[1] / "projects")
+    sheet = load_workbook(BytesIO(export_bytes(project, CATALOG)))["Cahier de paramétrage"]
+    titles = [c.value for c in sheet[1]]
+    col = titles.index("Édition Odoo requise")
+    by_step = {row[2].value: row[col].value for row in sheet.iter_rows(min_row=2)}
+    assert by_step["frf_tax_report"] == "Enterprise (account_reports, l10n_fr_reports)"
+    assert by_step["frf_e_invoicing"] == "Community et Enterprise"

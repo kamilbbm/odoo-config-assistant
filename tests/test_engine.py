@@ -15,7 +15,7 @@ from odoo_config_assistant.engine import (
     set_status,
     topological_sort,
 )
-from odoo_config_assistant.models import Catalog, Journey, Profile, StepStatus
+from odoo_config_assistant.models import Catalog, Edition, Journey, Profile, StepStatus
 
 COMMIT = "c" * 40
 
@@ -216,3 +216,57 @@ def test_rg008_plan_steps_keep_doc_commit(small_catalog, complete_profile):
     assert {s.doc_commit for s in project.plan} == {COMMIT}
     project = set_status(project, "a", StepStatus.DONE, small_catalog)
     assert project.plan_step("a").doc_commit == COMMIT
+
+
+# Q-008 Community / Enterprise --------------------------------------------------------------
+
+
+@pytest.fixture
+def edition_catalog() -> Catalog:
+    steps = [
+        make_step("base", modules=["account"]),
+        make_step("report", ["base"], modules=["account", "account_reports"]),
+        make_step("free"),
+    ]
+    journey = Journey.model_validate(make_journey("j", steps))
+    return Catalog(journeys=[journey], community_modules=frozenset({"account"}))
+
+
+@pytest.mark.parametrize(
+    ("edition", "expected"),
+    [
+        (None, ["base", "report", "free"]),
+        (Edition.ENTERPRISE, ["base", "report", "free"]),
+        (Edition.COMMUNITY, ["base", "free"]),
+    ],
+)
+def test_q008_enterprise_steps_are_left_out_of_a_community_plan(
+    edition_catalog, complete_profile, edition, expected
+):
+    profile = complete_profile.model_copy(update={"edition": edition})
+    assert ids(generate_plan(profile, edition_catalog)) == expected
+
+
+def test_q008_enterprise_modules_are_listed_per_step(edition_catalog):
+    assert edition_catalog.enterprise_modules(edition_catalog.step("report")) == [
+        "account_reports"
+    ]
+    assert edition_catalog.enterprise_modules(edition_catalog.step("base")) == []
+    unknown = edition_catalog.model_copy(update={"community_modules": None})
+    assert unknown.enterprise_modules(unknown.step("report")) == []
+
+
+def test_q008_switching_to_community_puts_enterprise_steps_out_of_scope(
+    edition_catalog, complete_profile
+):
+    project = create_project("P", complete_profile, edition_catalog, doc_commit=COMMIT)
+    community = complete_profile.model_copy(update={"edition": Edition.COMMUNITY})
+    project = recompute_plan(project, community, edition_catalog)
+    assert statuses(project)["report"] is StepStatus.OUT_OF_SCOPE
+    with pytest.raises(StatusTransitionError):
+        set_status(project, "report", StepStatus.TODO, edition_catalog)
+
+
+def test_q008_module_names_are_validated():
+    with pytest.raises(ValidationError):
+        Journey.model_validate(make_journey("j", [make_step("a", modules=["Account Reports"])]))

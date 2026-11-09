@@ -13,7 +13,7 @@ import pytest
 from odoo_config_assistant.engine import generate_plan, topological_sort
 from odoo_config_assistant.journeys import load_catalog
 from odoo_config_assistant.knowledge import split_sections
-from odoo_config_assistant.models import Activity, CompanySize, Profile
+from odoo_config_assistant.models import Activity, CompanySize, Edition, Profile
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "vendor" / "odoo-docs"
@@ -240,3 +240,71 @@ def test_france_recommendations_depend_on_the_profile():
 
 def test_french_vat_rates_are_not_presented_as_verified():
     assert all(not r.verified for r in CATALOG.step("frf_taxes").recommendations)
+
+
+# Q-008 Community / Enterprise ------------------------------------------------------------
+
+EDITIONS = json.loads((ROOT / "data" / "editions.json").read_text(encoding="utf-8"))
+COMMUNITY = set(EDITIONS["community_modules"])
+UPGRADES = set(EDITIONS["enterprise_upgrade_modules"])
+MODULES = sorted({m for _, s in STEPS for m in s.modules})
+
+
+def test_editions_file_records_odoo_community_18():
+    assert EDITIONS["repo"] == "https://github.com/odoo/odoo" and EDITIONS["branch"] == "18.0"
+    assert re.fullmatch(r"[0-9a-f]{40}", EDITIONS["commit"])
+    assert {"base", "account", "stock", "mrp"} <= COMMUNITY
+    assert not UPGRADES & COMMUNITY
+
+
+def test_catalog_knows_the_community_modules():
+    assert CATALOG.community_modules == frozenset(COMMUNITY)
+
+
+def test_enterprise_only_steps():
+    enterprise = {s.id for _, s in STEPS if CATALOG.enterprise_modules(s)}
+    assert enterprise == {
+        "fin_check_printing",
+        "fin_fiscal_year",
+        "fin_lock_dates",
+        "frf_fiscal_year",
+        "frf_year_end",
+        "fin_reports",
+        "fin_tax_periodicity",
+        "fin_tax_report",
+        "frf_fec_export",
+        "frf_sepa",
+        "frf_tax_periodicity",
+        "frf_tax_report",
+    }
+
+
+@needs_docs
+@pytest.mark.parametrize("module", MODULES)
+def test_required_module_is_a_known_odoo_module(module):
+    """No typo: the module is Community, an Enterprise upgrade, or named in the doc."""
+    if module in COMMUNITY or module in UPGRADES:
+        return
+    pattern = re.compile(rf"\b{re.escape(module)}\b")
+    for path in (DOCS / "content").rglob("*.rst"):
+        if pattern.search(path.read_text(encoding="utf-8")):
+            return
+    pytest.fail(f"module {module} inconnu : ni Community, ni Enterprise, ni dans la doc")
+
+
+def test_community_french_company_gets_no_enterprise_step():
+    profile = france_services_profile(
+        edition=Edition.COMMUNITY, uses_direct_debit=True, imports_fec_history=True
+    )
+    ids = step_ids_from(generate_plan(profile, CATALOG))
+    assert not {"frf_sepa", "frf_tax_report", "frf_fec_export", "frf_tax_periodicity"} & set(ids)
+    assert {"frf_e_invoicing", "frf_taxes", "frf_opening_balances"} <= set(ids)
+    assert "frf_year_end" not in ids
+    opening = CATALOG.step("frf_opening_balances").recommendation_for(profile)
+    assert "Import FEC" not in opening.value and not opening.verified
+
+
+def test_enterprise_or_unknown_edition_keeps_every_step():
+    unknown = set(step_ids_from(generate_plan(france_services_profile(), CATALOG)))
+    enterprise = france_services_profile(edition=Edition.ENTERPRISE)
+    assert set(step_ids_from(generate_plan(enterprise, CATALOG))) == unknown

@@ -17,6 +17,7 @@ LICENSE_NOTICE = "Documentation Odoo, licence CC BY-SA 4.0"
 LICENSE_URL = "https://creativecommons.org/licenses/by-sa/4.0/deed.fr"
 
 _STEP_ID = re.compile(r"^[a-z][a-z0-9_]*$")
+_MODULE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def _now() -> datetime:
@@ -77,6 +78,17 @@ SIZE_LABELS: dict[CompanySize, str] = {
 }
 
 
+class Edition(StrEnum):
+    COMMUNITY = "community"
+    ENTERPRISE = "enterprise"
+
+
+EDITION_LABELS: dict[Edition, str] = {
+    Edition.COMMUNITY: "Community",
+    Edition.ENTERPRISE: "Enterprise (Online, Odoo.sh ou sur site)",
+}
+
+
 class Profile(BaseModel):
     """Company profile filling the questionnaire (F-007)."""
 
@@ -87,6 +99,7 @@ class Profile(BaseModel):
     province: str | None = None
     activity: Activity | None = None
     size: CompanySize | None = None
+    edition: Edition | None = None
     tax_regime: str | None = None
     modules: list[str] = Field(default_factory=list)
     fiscal_year_end: str = "12-31"
@@ -248,6 +261,7 @@ class Step(BaseModel):
     recommendations: list[Recommendation] = Field(min_length=1)
     prerequisites: list[str] = Field(default_factory=list)
     applies_when: Condition | None = None
+    modules: list[str] = Field(default_factory=list)
     sources: list[Source] = Field(default_factory=list)
 
     @field_validator("id")
@@ -255,6 +269,14 @@ class Step(BaseModel):
     def _id_format(cls, value: str) -> str:
         if not _STEP_ID.match(value):
             raise ValueError(f"identifiant d'étape invalide : {value}")
+        return value
+
+    @field_validator("modules")
+    @classmethod
+    def _module_names(cls, value: list[str]) -> list[str]:
+        bad = [m for m in value if not _MODULE.match(m)]
+        if bad:
+            raise ValueError(f"nom technique de module invalide : {bad}")
         return value
 
     @model_validator(mode="after")
@@ -297,9 +319,31 @@ class Journey(BaseModel):
 
 
 class Catalog(BaseModel):
-    """All journeys loaded from the repository, already validated."""
+    """All journeys loaded from the repository, already validated.
+
+    ``community_modules`` lists the modules of the Community edition (data/editions.json). When it
+    is unknown (None), no step is considered Enterprise only.
+    """
 
     journeys: list[Journey] = Field(default_factory=list)
+    community_modules: frozenset[str] | None = None
+
+    def enterprise_modules(self, step: Step) -> list[str]:
+        """Modules required by the step that the Community edition does not have (Q-008)."""
+        if self.community_modules is None:
+            return []
+        return [m for m in step.modules if m not in self.community_modules]
+
+    def edition_label(self, step: Step) -> str:
+        """Text shown in the plan, the step sheet and the workbook."""
+        enterprise = self.enterprise_modules(step)
+        if enterprise:
+            return f"Enterprise ({', '.join(enterprise)})"
+        return "Community et Enterprise" if self.community_modules is not None else ""
+
+    def is_available(self, step: Step, profile: Profile) -> bool:
+        """A Community profile does not get Enterprise-only steps; unknown edition gets all."""
+        return profile.edition is not Edition.COMMUNITY or not self.enterprise_modules(step)
 
     def for_version(self, erp: str, version: str) -> list[Journey]:
         return [j for j in self.journeys if j.erp == erp and j.version == version]

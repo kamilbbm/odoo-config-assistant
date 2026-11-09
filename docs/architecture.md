@@ -62,6 +62,7 @@ flowchart LR
 | Langue des extraits | pages RST anglaises, glossaire de termes FR vers EN pour la requête | la recomposition depuis les .po est hors V0 | recomposition française (F-003), libellés de menus traduits |
 | Seuil de couverture (RG-006) | score BM25 minimal et nombre de termes trouvés | refuser plutôt qu'inventer | seuil calibré sur un jeu de questions types |
 | Modèle de langage | optionnel, `claude-opus-5-5`, réponse rejetée si elle ne cite aucun extrait | les extraits restent la seule source | choix du service à arbitrer (Q-002) |
+| Éditions (Q-008) | modules requis par étape, comparés aux modules du dépôt public odoo/odoo 18.0 (`data/editions.json`) | vérifiable sans accès au code Enterprise ; les champs `upgrade_boolean` des réglages Community désignent des modules Enterprise | liste mise à jour à chaque synchronisation |
 | Persistance | un fichier JSON par projet, écriture atomique | pas de serveur à installer | base de données applicative |
 | Interface | Streamlit | une seule commande pour lancer la démo | application web multi-utilisateur avec rôles |
 

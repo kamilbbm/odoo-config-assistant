@@ -51,6 +51,8 @@ steps:
       Il ne peut être changé que tant qu'aucune écriture n'a été comptabilisée.
   prerequisites:
   - frf_company
+  modules:
+  - l10n_fr_account
   sources:
   - path: content/applications/finance/fiscal_localizations.rst
     title: Fiscal localizations
@@ -103,6 +105,8 @@ steps:
     note: La date de clôture est celle des statuts de la société, à confirmer avec son expert-comptable.
   prerequisites:
   - frf_localization
+  modules:
+  - account_accountant
   sources:
   - path: content/applications/finance/accounting/get_started.rst
     title: Get started
@@ -191,6 +195,8 @@ steps:
       l'expert-comptable de la société.
   prerequisites:
   - frf_taxes
+  modules:
+  - account_reports
   sources:
   - path: content/applications/finance/accounting/reporting/tax_returns.rst
     title: Tax return (VAT declaration)
@@ -241,6 +247,8 @@ steps:
       la société, puis ajouter SEPA Credit Transfer aux Outgoing Payments du journal de banque.'
   prerequisites:
   - frf_bank_account
+  modules:
+  - account_iso20022
   sources:
   - path: content/applications/finance/accounting/payments/sepa_payments.rst
     title: SEPA payments
@@ -256,6 +264,14 @@ steps:
     que la balance d'Odoo corresponde à la comptabilité précédente.
   menu_path: Accounting > Configuration > Settings
   recommendations:
+  - value: Soldes d'ouverture des comptes généraux saisis depuis le plan comptable (Accounting > Configuration
+      > Chart of Accounts) à la date de bascule ; l'historique reste dans l'ancien logiciel.
+    when:
+      imports_fec_history: true
+      edition: community
+    verified: false
+    note: L'import FEC (l10n_fr_fec_import) n'existe pas dans l'édition Community. La reprise des soldes
+      clients et fournisseurs est à confirmer.
   - value: 'Installer France - FEC Import (l10n_fr_fec_import), puis section Accounting Import : Import,
       Import FEC et charger le FEC de l''ancien logiciel. Supprimer au besoin les écritures de reports
       à nouveaux (RAN) marquées comme inutiles.'
@@ -314,6 +330,8 @@ steps:
   prerequisites:
   - frf_company
   - frf_journals
+  modules:
+  - l10n_fr_pdp
   sources:
   - path: content/applications/finance/fiscal_localizations/france.rst
     title: France
@@ -343,6 +361,8 @@ steps:
   - frf_e_invoicing
   applies_when:
     b2g_invoicing: true
+  modules:
+  - l10n_fr_facturx_chorus_pro
   sources:
   - path: content/applications/finance/fiscal_localizations/france.rst
     title: France
@@ -363,6 +383,9 @@ steps:
   prerequisites:
   - frf_taxes
   - frf_tax_periodicity
+  modules:
+  - account_reports
+  - l10n_fr_reports
   sources:
   - path: content/applications/finance/accounting/reporting/tax_returns.rst
     title: Tax return (VAT declaration)
@@ -383,6 +406,8 @@ steps:
   prerequisites:
   - frf_journals
   - frf_fiscal_year
+  modules:
+  - account_reports
   sources:
   - path: content/applications/finance/fiscal_localizations/france.rst
     title: France
@@ -405,6 +430,8 @@ steps:
   prerequisites:
   - frf_fiscal_year
   - frf_tax_report
+  modules:
+  - account_accountant
   sources:
   - path: content/applications/finance/accounting/reporting/year_end.rst
     title: Year-end closing
