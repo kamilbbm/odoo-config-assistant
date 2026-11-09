@@ -84,4 +84,4 @@ confirmée par la documentation porte `verified: false` et une note ; elle appar
 | F-007, F-008 Profil et plan | onglet Profil, `engine.py` |
 | F-009, F-011 Exécution et suivi | onglets Plan et Fiche étape |
 | F-010 Assistant | onglet Assistant, `assistant.py`, `knowledge.py` |
-| F-012 Livrables | onglet Export, `export.py` (cahier de paramétrage) |
+| F-012 Livrables | onglet Export, `export.py` (cahier de paramétrage, checklist), `imports.py` (modèles d'import vérifiés contre `data/odoo_fields.json`) |

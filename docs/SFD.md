@@ -443,7 +443,7 @@ Les dates cibles sont exprimées en semaines à partir du lancement (S0), à cal
 | Q-007 | IMPORTANT | Des sources réglementaires complémentaires sont-elles intégrées en V1 (textes officiels sur la TVA, la facturation électronique) ? | Parcours Finance France incomplet sur les obligations légales, risque R-04 | Référent contenu | Ouvert |
 | Q-008 | IMPORTANT | Les éditions Community et Enterprise doivent-elles être distinguées dans le profil et les parcours ? | Étapes proposées sur des fonctions non disponibles pour le client | Consultants | Traité en V0 : édition dans le profil, étapes Enterprise hors plan en Community (à valider par les consultants) |
 | Q-009 | IMPORTANT | Le fournisseur d'identité de l'organisation est-il requis dès la V1 ? | Périmètre P1 et sécurité d'accès | Équipe technique | Ouvert |
-| Q-010 | INFO | Quels formats d'export pour les livrables (Word, PDF, Excel) ? | Conception de F-012 | Consultants | Ouvert |
+| Q-010 | INFO | Quels formats d'export pour les livrables (Word, PDF, Excel) ? | Conception de F-012 | Consultants | Ouvert (V0 : Excel pour le cahier, la checklist et les modèles d'import) |
 | Q-011 | INFO | L'interface doit-elle être multilingue ou en français uniquement en V1 ? | Charge de développement et de traduction | Direction | Ouvert |
 | Q-012 | INFO | Quel ERP 2 est envisagé, et à quelle échéance ? | Généricité du référentiel métier à confirmer | Direction | Ouvert |
 | Q-013 | IMPORTANT | Quelle est la date de lancement du projet ? | Planning exprimé uniquement en semaines relatives | Direction | Ouvert |

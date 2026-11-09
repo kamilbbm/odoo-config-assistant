@@ -27,6 +27,10 @@ from odoo_config_assistant.engine import (  # noqa: E402
     update_step,
 )
 from odoo_config_assistant.export import export_bytes  # noqa: E402
+from odoo_config_assistant.imports import (  # noqa: E402
+    export_templates_zip,
+    load_import_templates,
+)
 from odoo_config_assistant.journeys import load_catalog  # noqa: E402
 from odoo_config_assistant.knowledge import (  # noqa: E402
     DEFAULT_INDEX_PATH,
@@ -67,6 +71,11 @@ load_env_file(ROOT / ".env")
 @st.cache_resource
 def get_catalog():
     return load_catalog()
+
+
+@st.cache_resource
+def get_import_templates():
+    return load_import_templates()
 
 
 @st.cache_resource(show_spinner=False)
@@ -459,7 +468,8 @@ with tab_export:
     else:
         st.write(
             "Une ligne par étape : statut, valeur recommandée (avec la colonne « À confirmer »), "
-            "valeur retenue, commentaire, sources et version documentaire."
+            "valeur retenue, commentaire, sources, version documentaire et édition requise. "
+            "La feuille Checklist reprend les étapes du plan dans l'ordre, prête à imprimer."
         )
         st.download_button(
             "Télécharger le cahier (Excel)",
@@ -467,3 +477,22 @@ with tab_export:
             file_name=f"cahier_parametrage_{project.id}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+        st.subheader("Modèles de fichiers d'import")
+        templates = get_import_templates().for_project(project)
+        if not templates:
+            st.info("Aucun modèle d'import ne correspond aux étapes du plan.")
+        else:
+            st.write(
+                "Un fichier Excel par jeu de données à charger dans Odoo, limité aux étapes du "
+                "plan. En-têtes au nom technique des champs, feuille Aide avec le sens et un "
+                "exemple de chaque colonne."
+            )
+            for template in templates:
+                st.write(f"- {template.title} (`{template.model}`)")
+            st.download_button(
+                "Télécharger les modèles d'import (.zip)",
+                data=export_templates_zip(project, catalog, get_import_templates()),
+                file_name=f"modeles_import_{project.id}.zip",
+                mime="application/zip",
+            )

@@ -98,3 +98,15 @@ def test_export_shows_the_required_edition():
     by_step = {row[2].value: row[col].value for row in sheet.iter_rows(min_row=2)}
     assert by_step["frf_tax_report"] == "Enterprise (account_reports, l10n_fr_reports)"
     assert by_step["frf_e_invoicing"] == "Community et Enterprise"
+
+
+def test_checklist_sheet_lists_the_plan_in_order():
+    project = load_project("exemple", Path(__file__).resolve().parents[1] / "projects")
+    workbook = load_workbook(BytesIO(export_bytes(project, CATALOG)))
+    assert workbook.sheetnames == ["Cahier de paramétrage", "Checklist", "Projet"]
+    rows = list(workbook["Checklist"].iter_rows(min_row=2, values_only=True))
+    in_scope = project.in_scope()
+    assert len(rows) == len(in_scope)
+    assert [r[1] for r in rows] == [s.order + 1 for s in in_scope]
+    for row, item in zip(rows, in_scope, strict=True):
+        assert row[0] == ("☑" if item.status.is_complete else "☐")

@@ -96,7 +96,16 @@ contiennent une erreur ou un avertissement.
   qui ne cite aucun extrait est rejetée. Une question non couverte reçoit une réponse explicite
   « non couverte par la documentation ».
 - **Cahier de paramétrage Excel** : une ligne par étape, statut, valeur recommandée, colonne
-  « À confirmer », valeur retenue, commentaire, sources, commit de la documentation.
+  « À confirmer », valeur retenue, commentaire, sources, commit de la documentation, édition
+  requise ; feuille **Checklist** imprimable (étapes du plan dans l'ordre, case à cocher, date et
+  initiales).
+- **Modèles de fichiers d'import** (.zip) : un fichier Excel par jeu de données à charger
+  (plan comptable, soldes d'ouverture, clients et fournisseurs, articles, postes de travail,
+  nomenclatures, règles de réapprovisionnement, stock initial), limité aux étapes du plan.
+  En-têtes au nom technique des champs, feuille Aide avec le sens et un exemple de chaque
+  colonne. Chaque colonne est vérifiée par les tests contre les champs déclarés dans le code de
+  l'édition Community 18.0 ([data/odoo_fields.json](data/odoo_fields.json)), référentiel dans
+  [data/import_templates.yaml](data/import_templates.yaml).
 
 ### Éditions Community et Enterprise
 
@@ -175,7 +184,8 @@ src/odoo_config_assistant/
   engine.py            plan, tri topologique, statuts et règles de gestion
   knowledge.py         découpage RST, index BM25, citations
   assistant.py         réponse avec ou sans modèle de langage
-  export.py            cahier de paramétrage Excel
+  export.py            cahier de paramétrage Excel et checklist
+  imports.py           modèles de fichiers d'import
   storage.py           un fichier JSON par projet
   sources.py           téléchargement de la documentation et construction de l'index
 scripts/               fetch_docs.py, fetch_editions.py, build_index.py, smoke_app.py,
@@ -212,7 +222,7 @@ La V1 cible est décrite dans la [SFD](docs/SFD.md). Hors périmètre de la V0 :
 - recherche sémantique en complément du BM25, derrière l'interface `Retriever` de `knowledge.py` ;
 - base de données applicative, éditeur de parcours et référentiel Domaine, Module, Processus,
   Paramètre (F-004, F-005, E-09) ;
-- identité de l'organisation sur les livrables, checklist et modèles d'import (F-012, RG-013) ;
+- identité de l'organisation sur les livrables (F-012, RG-013) ; livrables Word ou PDF (Q-010) ;
 - contrôle d'écart avec une instance Odoo en lecture seule (phase 2, F-014, RG-016) ;
 - autres ERP (Q-012).
 

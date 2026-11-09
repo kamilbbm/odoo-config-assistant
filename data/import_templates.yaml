@@ -1,0 +1,125 @@
+# Modèles de fichiers d'import (F-012), Odoo 18.
+# En-têtes = noms techniques des champs, comme dans un export « compatible import » ; Odoo les
+# reconnaît à l'import. Chaque champ est vérifié contre le code de l'édition Community
+# (data/odoo_fields.json, produit par scripts/fetch_editions.py).
+# Un modèle n'est livré que si l'une de ses étapes est au plan du projet.
+
+source:
+  path: content/applications/essentials/export_import_data.rst
+  title: Export and import data
+  anchor: essentials/export_import_data/adapt-a-template
+  url: https://www.odoo.com/documentation/18.0/fr/applications/essentials/export_import_data.html#essentials-export-import-data-adapt-a-template
+
+templates:
+- id: chart_of_accounts
+  title: Plan comptable
+  model: account.account
+  modules: [account]
+  steps: [fin_chart_of_accounts, frf_chart_of_accounts]
+  columns:
+  - {field: code, description: Numéro du compte, example: '411100'}
+  - {field: name, description: Libellé du compte, example: Clients France}
+  - {field: account_type, description: Type de compte (valeur technique), example: asset_receivable}
+  - {field: reconcile, description: Lettrage autorisé, example: 'True'}
+
+- id: opening_balances
+  title: Soldes d'ouverture
+  model: account.account
+  modules: [account]
+  steps: [fin_opening_balances, frf_opening_balances]
+  columns:
+  - {field: code, description: Numéro du compte existant, example: '512000'}
+  - {field: name, description: Libellé du compte, example: Banque}
+  - {field: opening_debit, description: Solde débiteur à la date de bascule, example: '15000.00'}
+  - {field: opening_credit, description: Solde créditeur à la date de bascule, example: '0.00'}
+
+- id: partners
+  title: Clients et fournisseurs
+  model: res.partner
+  modules: [base, account]
+  steps: [fin_payment_terms, frf_payment_terms]
+  columns:
+  - {field: id, description: 'External ID : identifiant unique repris de l''ancien logiciel', example: client_0001}
+  - {field: name, description: Nom de la société ou de la personne, example: Exemple SARL}
+  - {field: is_company, description: Société (True) ou personne (False), example: 'True'}
+  - {field: street, description: Adresse, example: 1 rue de l'Exemple}
+  - {field: zip, description: Code postal, example: '59000'}
+  - {field: city, description: Ville, example: Lille}
+  - {field: country_id/id, description: Pays (External ID du pays), example: base.fr}
+  - {field: vat, description: Numéro de TVA ou de taxe, example: FR00000000000}
+  - {field: company_registry, description: Numéro d'immatriculation (Company ID), example: '000000000'}
+  - {field: email, description: Courriel, example: compta@exemple.fr}
+  - {field: phone, description: Téléphone, example: '+33 3 00 00 00 00'}
+  - {field: property_payment_term_id, description: Conditions de paiement client (libellé), example: 30 Days}
+  - {field: property_supplier_payment_term_id, description: Conditions de paiement fournisseur (libellé), example: 30 Days}
+
+- id: products
+  title: Articles
+  model: product.template
+  modules: [product, stock, purchase, account]
+  steps: [inv_product_categories, inv_components, mrp_product]
+  columns:
+  - {field: id, description: External ID de l'article, example: article_0001}
+  - {field: name, description: Nom de l'article, example: Planche de chêne 2 m}
+  - {field: default_code, description: Référence interne, example: CH-200}
+  - {field: type, description: 'Type : consu (bien), service ou combo', example: consu}
+  - {field: is_storable, description: Suivi du stock (True pour un article stocké), example: 'True'}
+  - {field: categ_id, description: Catégorie d'article (chemin complet), example: All / Matières premières}
+  - {field: uom_id, description: Unité de mesure, example: Units}
+  - {field: uom_po_id, description: Unité de mesure d'achat, example: Units}
+  - {field: tracking, description: 'Traçabilité : none, lot ou serial', example: lot}
+  - {field: sale_ok, description: Peut être vendu, example: 'False'}
+  - {field: purchase_ok, description: Peut être acheté, example: 'True'}
+  - {field: list_price, description: Prix de vente, example: '0.00'}
+  - {field: standard_price, description: Coût, example: '42.50'}
+
+- id: work_centers
+  title: Postes de travail
+  model: mrp.workcenter
+  modules: [mrp]
+  steps: [mrp_work_centers]
+  columns:
+  - {field: id, description: External ID du poste, example: poste_scie}
+  - {field: name, description: Nom du poste de travail, example: Scie à format}
+  - {field: code, description: Code court, example: SCIE}
+  - {field: default_capacity, description: Capacité (pièces traitées en parallèle), example: '1'}
+  - {field: time_efficiency, description: Efficacité en pourcentage, example: '100'}
+  - {field: costs_hour, description: Coût horaire, example: '55.00'}
+
+- id: bills_of_materials
+  title: Nomenclatures
+  model: mrp.bom
+  modules: [mrp]
+  steps: [mrp_bom]
+  subfields:
+    bom_line_ids: mrp.bom.line
+  columns:
+  - {field: id, description: 'External ID de la nomenclature (une ligne par composant, ID et
+      produit sur la première ligne seulement)', example: bom_table}
+  - {field: product_tmpl_id, description: Produit fabriqué, example: Table en chêne}
+  - {field: product_qty, description: Quantité produite, example: '1'}
+  - {field: type, description: 'Type : normal (fabriquer) ou phantom (kit)', example: normal}
+  - {field: bom_line_ids/product_id, description: Composant, example: Planche de chêne 2 m}
+  - {field: bom_line_ids/product_qty, description: Quantité du composant, example: '4'}
+
+- id: reordering_rules
+  title: Règles de réapprovisionnement
+  model: stock.warehouse.orderpoint
+  modules: [stock]
+  steps: [inv_reordering_rules]
+  columns:
+  - {field: product_id, description: Article, example: Planche de chêne 2 m}
+  - {field: location_id, description: Emplacement, example: WH/Stock}
+  - {field: product_min_qty, description: Quantité minimale, example: '20'}
+  - {field: product_max_qty, description: Quantité maximale, example: '100'}
+
+- id: initial_quantities
+  title: Stock initial
+  model: stock.quant
+  modules: [stock]
+  steps: [inv_initial_quantities]
+  columns:
+  - {field: product_id, description: Article, example: Planche de chêne 2 m}
+  - {field: location_id, description: Emplacement, example: WH/Stock}
+  - {field: lot_id, description: Lot (articles suivis par lot), example: LOT-2026-001}
+  - {field: inventory_quantity, description: Quantité comptée, example: '60'}

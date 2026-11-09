@@ -55,6 +55,7 @@ def build_workbook(project: Project, catalog: Catalog) -> Workbook:
     sheet = workbook.active
     sheet.title = "Cahier de paramétrage"
     _plan_sheet(sheet, project, catalog)
+    _checklist_sheet(workbook.create_sheet("Checklist"), project, catalog)
     _project_sheet(workbook.create_sheet("Projet"), project)
     return workbook
 
@@ -116,6 +117,50 @@ def _plan_sheet(sheet, project: Project, catalog: Catalog) -> None:
 
     sheet.freeze_panes = "E2"
     sheet.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNS))}{max(len(project.plan) + 1, 1)}"
+
+
+CHECKLIST_COLUMNS: list[tuple[str, int]] = [
+    ("Fait", 6),
+    ("N°", 5),
+    ("Étape", 34),
+    ("Chemin de menu (Odoo 18)", 42),
+    ("Après", 34),
+    ("Statut", 12),
+    ("Édition", 12),
+    ("Date et initiales", 18),
+]
+
+
+def _checklist_sheet(sheet, project: Project, catalog: Catalog) -> None:
+    """Printable checklist (F-012): steps in plan order, out-of-scope steps left out."""
+    for col, (title, width) in enumerate(CHECKLIST_COLUMNS, start=1):
+        cell = sheet.cell(row=1, column=col, value=title)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = _HEADER_FILL
+        cell.alignment = _WRAP
+        sheet.column_dimensions[get_column_letter(col)].width = width
+    in_plan = {s.step_id for s in project.in_scope()}
+    for row, item in enumerate(project.in_scope(), start=2):
+        step = catalog.step(item.step_id)
+        after = [catalog.step(p).title for p in step.prerequisites if p in in_plan]
+        values = [
+            "☑" if item.status.is_complete else "☐",
+            item.order + 1,
+            step.title,
+            step.menu_path,
+            ", ".join(after),
+            item.status.label,
+            "Enterprise" if catalog.enterprise_modules(step) else "",
+            "",
+        ]
+        for col, value in enumerate(values, start=1):
+            sheet.cell(row=row, column=col, value=value).alignment = _WRAP
+    sheet.freeze_panes = "A2"
+    sheet.print_title_rows = "1:1"
+    sheet.page_setup.orientation = "landscape"
+    sheet.page_setup.fitToWidth = 1
+    sheet.page_setup.fitToHeight = 0
+    sheet.sheet_properties.pageSetUpPr.fitToPage = True
 
 
 def _project_sheet(sheet, project: Project) -> None:
