@@ -46,6 +46,8 @@ steps:
     note: Le paquet ne peut être changé que tant qu'aucune écriture n'a été comptabilisée.
   prerequisites:
   - fin_company
+  modules:
+  - l10n_ca
   sources:
   - path: content/applications/finance/fiscal_localizations.rst
     title: Fiscal localizations
@@ -97,6 +99,8 @@ steps:
     note: La date de clôture propre à la société est à confirmer avec son comptable.
   prerequisites:
   - fin_localization
+  modules:
+  - account_accountant
   sources:
   - path: content/applications/finance/accounting/get_started.rst
     title: Get started
@@ -197,6 +201,8 @@ steps:
       Odoo ; à confirmer avec le comptable de la société.
   prerequisites:
   - fin_taxes
+  modules:
+  - account_reports
   sources:
   - path: content/applications/finance/accounting/reporting/tax_returns.rst
     title: Tax return (VAT declaration)
@@ -289,6 +295,8 @@ steps:
   - fin_bank_account
   applies_when:
     uses_checks: true
+  modules:
+  - l10n_ca_check_printing
   sources:
   - path: content/applications/finance/fiscal_localizations/canada.rst
     title: Canada
@@ -302,6 +310,8 @@ steps:
   - value: Lock Everything au dernier jour de l'exercice précédent, une fois la clôture faite.
   prerequisites:
   - fin_fiscal_year
+  modules:
+  - account_accountant
   sources:
   - path: content/applications/finance/accounting/reporting/year_end.rst
     title: Year-end closing
@@ -318,6 +328,8 @@ steps:
   prerequisites:
   - fin_chart_of_accounts
   - fin_taxes
+  modules:
+  - l10n_ca_reports
   sources:
   - path: content/applications/finance/fiscal_localizations/canada.rst
     title: Canada
@@ -334,6 +346,8 @@ steps:
   prerequisites:
   - fin_taxes
   - fin_tax_periodicity
+  modules:
+  - account_reports
   sources:
   - path: content/applications/finance/accounting/reporting/tax_returns.rst
     title: Tax return (VAT declaration)

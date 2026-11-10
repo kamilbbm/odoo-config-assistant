@@ -6,6 +6,7 @@ unknown prerequisite, a duplicated step id or a prerequisite cycle all stop the 
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import yaml
@@ -14,6 +15,7 @@ from pydantic import ValidationError
 from odoo_config_assistant.models import Catalog, Journey
 
 DEFAULT_JOURNEYS_DIR = Path(__file__).resolve().parents[2] / "data" / "journeys"
+DEFAULT_EDITIONS_FILE = DEFAULT_JOURNEYS_DIR.parent / "editions.json"
 
 
 class JourneyValidationError(ValueError):
@@ -37,7 +39,16 @@ def load_journey(path: Path) -> Journey:
         raise JourneyValidationError(errors) from exc
 
 
-def load_catalog(directory: Path = DEFAULT_JOURNEYS_DIR) -> Catalog:
+def load_community_modules(path: Path = DEFAULT_EDITIONS_FILE) -> frozenset[str] | None:
+    """Modules of the Community edition (scripts/fetch_editions.py), None if the file is absent."""
+    if not path.is_file():
+        return None
+    return frozenset(json.loads(path.read_text(encoding="utf-8"))["community_modules"])
+
+
+def load_catalog(
+    directory: Path = DEFAULT_JOURNEYS_DIR, editions_file: Path = DEFAULT_EDITIONS_FILE
+) -> Catalog:
     """Load every ``*.yaml`` journey of ``directory`` and validate them together."""
     errors: list[str] = []
     journeys: list[Journey] = []
@@ -48,7 +59,7 @@ def load_catalog(directory: Path = DEFAULT_JOURNEYS_DIR) -> Catalog:
             errors.extend(exc.errors)
     if errors:
         raise JourneyValidationError(errors)
-    catalog = Catalog(journeys=journeys)
+    catalog = Catalog(journeys=journeys, community_modules=load_community_modules(editions_file))
     validate_catalog(catalog)
     return catalog
 

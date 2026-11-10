@@ -7,9 +7,10 @@ vendor/
 # Index de recherche construit par scripts/build_index.py
 index/
 
-# Projets clients (seul l'exemple est versionné)
+# Projets clients (seuls les exemples sont versionnés)
 projects/*
 !projects/exemple.json
+!projects/exemple-fr.json
 
 # Python
 __pycache__/

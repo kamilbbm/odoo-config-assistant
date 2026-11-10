@@ -1,8 +1,8 @@
 # Architecture de la V0
 
 La V0 est une tranche verticale de la SFD ([SFD.md](SFD.md)) : du profil de l'entreprise au
-cahier de paramétrage, pour Odoo 18 et deux parcours (Finance au Québec, Inventaire et
-fabrication). Elle reprend les trois couches du schéma fonctionnel de la SFD (2.1.3) :
+cahier de paramétrage, pour Odoo 18 et trois parcours (Finance au Québec, Finance en France,
+Inventaire et fabrication). Elle reprend les trois couches du schéma fonctionnel de la SFD (2.1.3) :
 Connaissance, Configuration du projet client, Assistance et restitution.
 
 ## Modules
@@ -62,6 +62,7 @@ flowchart LR
 | Langue des extraits | pages RST anglaises, glossaire de termes FR vers EN pour la requête | la recomposition depuis les .po est hors V0 | recomposition française (F-003), libellés de menus traduits |
 | Seuil de couverture (RG-006) | score BM25 minimal et nombre de termes trouvés | refuser plutôt qu'inventer | seuil calibré sur un jeu de questions types |
 | Modèle de langage | optionnel, `claude-opus-5-5`, réponse rejetée si elle ne cite aucun extrait | les extraits restent la seule source | choix du service à arbitrer (Q-002) |
+| Éditions (Q-008) | modules requis par étape, comparés aux modules du dépôt public odoo/odoo 18.0 (`data/editions.json`) | vérifiable sans accès au code Enterprise ; les champs `upgrade_boolean` des réglages Community désignent des modules Enterprise | liste mise à jour à chaque synchronisation |
 | Persistance | un fichier JSON par projet, écriture atomique | pas de serveur à installer | base de données applicative |
 | Interface | Streamlit | une seule commande pour lancer la démo | application web multi-utilisateur avec rôles |
 
@@ -83,4 +84,4 @@ confirmée par la documentation porte `verified: false` et une note ; elle appar
 | F-007, F-008 Profil et plan | onglet Profil, `engine.py` |
 | F-009, F-011 Exécution et suivi | onglets Plan et Fiche étape |
 | F-010 Assistant | onglet Assistant, `assistant.py`, `knowledge.py` |
-| F-012 Livrables | onglet Export, `export.py` (cahier de paramétrage) |
+| F-012 Livrables | onglet Export, `export.py` (cahier de paramétrage, checklist), `imports.py` (modèles d'import vérifiés contre `data/odoo_fields.json`) |

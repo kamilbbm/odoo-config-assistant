@@ -16,6 +16,7 @@ from openpyxl.utils import get_column_letter
 
 from odoo_config_assistant.models import (
     ACTIVITY_LABELS,
+    EDITION_LABELS,
     LICENSE_NOTICE,
     LICENSE_URL,
     SIZE_LABELS,
@@ -41,6 +42,7 @@ COLUMNS: list[tuple[str, int]] = [
     ("Sources", 60),
     ("Version documentaire (commit)", 44),
     ("Mis à jour le", 18),
+    ("Édition Odoo requise", 30),
 ]
 
 _HEADER_FILL = PatternFill("solid", fgColor="1F4E78")
@@ -53,6 +55,7 @@ def build_workbook(project: Project, catalog: Catalog) -> Workbook:
     sheet = workbook.active
     sheet.title = "Cahier de paramétrage"
     _plan_sheet(sheet, project, catalog)
+    _checklist_sheet(workbook.create_sheet("Checklist"), project, catalog)
     _project_sheet(workbook.create_sheet("Projet"), project)
     return workbook
 
@@ -101,6 +104,7 @@ def _plan_sheet(sheet, project: Project, catalog: Catalog) -> None:
             sources,
             item.doc_commit or project.doc_commit or "",
             item.updated_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M"),
+            catalog.edition_label(step),
         ]
         for col, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=col, value=value)
@@ -115,6 +119,50 @@ def _plan_sheet(sheet, project: Project, catalog: Catalog) -> None:
     sheet.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNS))}{max(len(project.plan) + 1, 1)}"
 
 
+CHECKLIST_COLUMNS: list[tuple[str, int]] = [
+    ("Fait", 6),
+    ("N°", 5),
+    ("Étape", 34),
+    ("Chemin de menu (Odoo 18)", 42),
+    ("Après", 34),
+    ("Statut", 12),
+    ("Édition", 12),
+    ("Date et initiales", 18),
+]
+
+
+def _checklist_sheet(sheet, project: Project, catalog: Catalog) -> None:
+    """Printable checklist (F-012): steps in plan order, out-of-scope steps left out."""
+    for col, (title, width) in enumerate(CHECKLIST_COLUMNS, start=1):
+        cell = sheet.cell(row=1, column=col, value=title)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = _HEADER_FILL
+        cell.alignment = _WRAP
+        sheet.column_dimensions[get_column_letter(col)].width = width
+    in_plan = {s.step_id for s in project.in_scope()}
+    for row, item in enumerate(project.in_scope(), start=2):
+        step = catalog.step(item.step_id)
+        after = [catalog.step(p).title for p in step.prerequisites if p in in_plan]
+        values = [
+            "☑" if item.status.is_complete else "☐",
+            item.order + 1,
+            step.title,
+            step.menu_path,
+            ", ".join(after),
+            item.status.label,
+            "Enterprise" if catalog.enterprise_modules(step) else "",
+            "",
+        ]
+        for col, value in enumerate(values, start=1):
+            sheet.cell(row=row, column=col, value=value).alignment = _WRAP
+    sheet.freeze_panes = "A2"
+    sheet.print_title_rows = "1:1"
+    sheet.page_setup.orientation = "landscape"
+    sheet.page_setup.fitToWidth = 1
+    sheet.page_setup.fitToHeight = 0
+    sheet.sheet_properties.pageSetUpPr.fitToPage = True
+
+
 def _project_sheet(sheet, project: Project) -> None:
     profile = project.profile
     rows = [
@@ -124,6 +172,7 @@ def _project_sheet(sheet, project: Project) -> None:
         ("Pays / province", f"{profile.country or ''} / {profile.province or ''}"),
         ("Activité", ACTIVITY_LABELS.get(profile.activity, "") if profile.activity else ""),
         ("Taille", SIZE_LABELS.get(profile.size, "") if profile.size else ""),
+        ("Édition Odoo", EDITION_LABELS[profile.edition] if profile.edition else "Non précisée"),
         ("Modules", ", ".join(profile.modules)),
         ("Fin d'exercice", profile.fiscal_year_end),
         ("Documentation Odoo (commit)", project.doc_commit or ""),

@@ -4,10 +4,14 @@
 > company profile; the app builds a configuration plan ordered by prerequisites, shows one sheet
 > per step (goal, menu path, recommended value, sources), tracks progress, answers questions with
 > citations from the official Odoo documentation, and exports a configuration workbook to Excel.
-> Two journeys: Finance for a Quebec company (GST/QST) and Inventory and manufacturing for a small
-> manufacturer. Every step is checked against the odoo/documentation 18.0 repository by tests.
+> Three journeys: Finance for a Quebec company (GST/QST), Finance for a French company (VAT,
+> SEPA, e-invoicing, FEC) and Inventory and manufacturing for a small manufacturer. Every step is checked against the odoo/documentation 18.0 repository by tests.
+> Live demo: https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/
 
 [![CI](https://github.com/kamilbbm/odoo-config-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/kamilbbm/odoo-config-assistant/actions/workflows/ci.yml)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/)
+
+**Démo en ligne : [odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app](https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/)**
 
 ## Le problème
 
@@ -22,8 +26,13 @@ fonctionnelle complète (V1 cible) est dans [docs/SFD.md](docs/SFD.md).
 
 ## Démo
 
-Projet exemple fictif : Atelier Boréal inc., PME manufacturière au Québec
-([projects/exemple.json](projects/exemple.json)).
+Deux projets exemples fictifs, à choisir dans la liste des projets :
+
+- Atelier Boréal inc., PME manufacturière au Québec ([projects/exemple.json](projects/exemple.json)),
+  ouvert par défaut ;
+- Cabinet Vauban Conseil SAS, société de conseil à Lille
+  ([projects/exemple-fr.json](projects/exemple-fr.json)) : parcours Finance France avec
+  prélèvement SEPA, Chorus Pro et reprise de l'historique par FEC.
 
 | Plan de configuration | Fiche étape |
 | --- | --- |
@@ -35,9 +44,14 @@ Les captures sont produites par `scripts/capture_screens.py` (workflow `Screensh
 
 ## Démo en ligne
 
-URL : _à compléter après le déploiement_ (`https://<nom-de-l-app>.streamlit.app`)
+L'application est déployée sur Streamlit Community Cloud, branche `main` :
+[https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/](https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/)
 
-L'application est prête pour [Streamlit Community Cloud](https://streamlit.io/cloud) :
+Elle s'ouvre sur le projet exemple Atelier Boréal ; le projet Cabinet Vauban se choisit dans la
+liste des projets. Une instance en veille met une à deux
+minutes à redémarrer à la première visite.
+
+Pour redéployer sur [Streamlit Community Cloud](https://streamlit.io/cloud) :
 
 1. New app, dépôt `kamilbbm/odoo-config-assistant`, branche `main`, fichier principal
    `app/streamlit_app.py`, Python 3.11 ou plus récent.
@@ -49,20 +63,25 @@ L'application est prête pour [Streamlit Community Cloud](https://streamlit.io/c
 
 Les dépendances viennent de [requirements.txt](requirements.txt) et `git` de
 [packages.txt](packages.txt). Sur Community Cloud, le disque n'est pas persistant : les projets
-créés en ligne disparaissent au redémarrage de l'instance, seul le projet exemple est permanent.
+créés en ligne disparaissent au redémarrage de l'instance, seuls les projets exemples sont permanents.
 Le job CI `app-smoke` reproduit ce démarrage sur un dépôt neuf et échoue si les logs du serveur
 contiennent une erreur ou un avertissement.
 
 ## Ce que fait la V0
 
 - **Profil de l'entreprise** : pays, province, activité, taille, modules souhaités, options
-  (devises étrangères, chèques, lots, fabrication à la commande).
+  (devises étrangères, chèques, lots, fabrication à la commande ; pour la France, prélèvement
+  SEPA, clients publics via Chorus Pro, reprise de l'historique par FEC).
 - **Plan ordonné** : filtrage des étapes applicables au profil, tri topologique des prérequis,
   détection des cycles et des prérequis inexistants au chargement du référentiel.
-- **Deux parcours, 37 étapes** dans [data/journeys](data/journeys) :
+- **Trois parcours, 56 étapes** dans [data/journeys](data/journeys) :
   - Finance, société québécoise (18 étapes) : localisation canadienne, TPS et TVQ, positions
     fiscales par province, plan comptable, journaux, comptes bancaires, soldes d'ouverture,
     exercice fiscal, devise, conditions de paiement, chèques, verrouillage, rapports.
+  - Finance, société française (19 étapes) : localisation française, TVA et positions fiscales,
+    plan comptable, journaux, comptes bancaires, paiements SEPA (virement et prélèvement), soldes
+    d'ouverture ou import FEC, conditions de paiement, facturation électronique par plateforme
+    agréée, Chorus Pro, rapport de TVA, export FEC, liasse fiscale et verrouillage.
   - Inventaire et fabrication (19 étapes) : entrepôt et emplacements, routes, réceptions et
     livraisons, unités de mesure, catégories et valorisation, composants achetés, lots, postes de
     travail, nomenclatures, réapprovisionnement, fabrication à la commande, stock initial, ordre
@@ -77,7 +96,31 @@ contiennent une erreur ou un avertissement.
   qui ne cite aucun extrait est rejetée. Une question non couverte reçoit une réponse explicite
   « non couverte par la documentation ».
 - **Cahier de paramétrage Excel** : une ligne par étape, statut, valeur recommandée, colonne
-  « À confirmer », valeur retenue, commentaire, sources, commit de la documentation.
+  « À confirmer », valeur retenue, commentaire, sources, commit de la documentation, édition
+  requise ; feuille **Checklist** imprimable (étapes du plan dans l'ordre, case à cocher, date et
+  initiales).
+- **Modèles de fichiers d'import** (.zip) : un fichier Excel par jeu de données à charger
+  (plan comptable, soldes d'ouverture, clients et fournisseurs, articles, postes de travail,
+  nomenclatures, règles de réapprovisionnement, stock initial), limité aux étapes du plan.
+  En-têtes au nom technique des champs, feuille Aide avec le sens et un exemple de chaque
+  colonne. Chaque colonne est vérifiée par les tests contre les champs déclarés dans le code de
+  l'édition Community 18.0 ([data/odoo_fields.json](data/odoo_fields.json)), référentiel dans
+  [data/import_templates.yaml](data/import_templates.yaml).
+
+### Éditions Community et Enterprise
+
+Le profil précise l'édition d'Odoo (question Q-008 de la SFD). Chaque étape déclare les modules
+techniques dont elle a besoin ; un module absent du dépôt public
+[odoo/odoo](https://github.com/odoo/odoo) 18.0 relève de l'édition Enterprise. La liste des
+modules Community est extraite par `scripts/fetch_editions.py` dans
+[data/editions.json](data/editions.json), avec le commit utilisé.
+
+- Édition Community : les étapes qui exigent un module Enterprise sont hors plan (rapports et
+  déclaration de taxes `account_reports`, exercice fiscal et verrouillage `account_accountant`,
+  paiements SEPA `account_iso20022`, rapports et chèques canadiens, export FEC) ; la fiche étape
+  rappelle que l'application comptable s'y appelle Invoicing.
+- Édition Enterprise ou non précisée : toutes les étapes restent au plan ; celles qui exigent
+  Enterprise portent la mention « Enterprise » dans le plan, la fiche et le cahier.
 
 ### Véracité du contenu
 
@@ -141,10 +184,12 @@ src/odoo_config_assistant/
   engine.py            plan, tri topologique, statuts et règles de gestion
   knowledge.py         découpage RST, index BM25, citations
   assistant.py         réponse avec ou sans modèle de langage
-  export.py            cahier de paramétrage Excel
+  export.py            cahier de paramétrage Excel et checklist
+  imports.py           modèles de fichiers d'import
   storage.py           un fichier JSON par projet
   sources.py           téléchargement de la documentation et construction de l'index
-scripts/               fetch_docs.py, build_index.py, smoke_app.py, capture_screens.py
+scripts/               fetch_docs.py, fetch_editions.py, build_index.py, smoke_app.py,
+                       capture_screens.py
 app/streamlit_app.py   interface en français
 ```
 
@@ -177,7 +222,7 @@ La V1 cible est décrite dans la [SFD](docs/SFD.md). Hors périmètre de la V0 :
 - recherche sémantique en complément du BM25, derrière l'interface `Retriever` de `knowledge.py` ;
 - base de données applicative, éditeur de parcours et référentiel Domaine, Module, Processus,
   Paramètre (F-004, F-005, E-09) ;
-- identité de l'organisation sur les livrables, checklist et modèles d'import (F-012, RG-013) ;
+- identité de l'organisation sur les livrables (F-012, RG-013) ; livrables Word ou PDF (Q-010) ;
 - contrôle d'écart avec une instance Odoo en lecture seule (phase 2, F-014, RG-016) ;
 - autres ERP (Q-012).
 

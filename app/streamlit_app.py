@@ -27,6 +27,10 @@ from odoo_config_assistant.engine import (  # noqa: E402
     update_step,
 )
 from odoo_config_assistant.export import export_bytes  # noqa: E402
+from odoo_config_assistant.imports import (  # noqa: E402
+    export_templates_zip,
+    load_import_templates,
+)
 from odoo_config_assistant.journeys import load_catalog  # noqa: E402
 from odoo_config_assistant.knowledge import (  # noqa: E402
     DEFAULT_INDEX_PATH,
@@ -36,12 +40,14 @@ from odoo_config_assistant.knowledge import (  # noqa: E402
 )
 from odoo_config_assistant.models import (  # noqa: E402
     ACTIVITY_LABELS,
+    EDITION_LABELS,
     LICENSE_NOTICE,
     LICENSE_URL,
     REQUIRED_FIELD_LABELS,
     SIZE_LABELS,
     Activity,
     CompanySize,
+    Edition,
     Profile,
     Project,
     StepStatus,
@@ -55,7 +61,7 @@ MODULE_LABELS = {
     "purchase": "Achats (purchase)",
     "sale": "Ventes (sale)",
 }
-CURRENCIES = ["USD", "EUR", "GBP", "MXN"]
+CURRENCIES = ["USD", "EUR", "CAD", "GBP", "CHF", "MXN"]
 NEW_PROJECT = "+ Nouveau projet"
 
 st.set_page_config(page_title="Assistant de configuration Odoo", layout="wide")
@@ -65,6 +71,11 @@ load_env_file(ROOT / ".env")
 @st.cache_resource
 def get_catalog():
     return load_catalog()
+
+
+@st.cache_resource
+def get_import_templates():
+    return load_import_templates()
 
 
 @st.cache_resource(show_spinner=False)
@@ -182,6 +193,14 @@ with tab_profile:
             index=sizes.index(profile.size),
             format_func=lambda s: "Non renseignée" if s is None else SIZE_LABELS[s],
         )
+        editions = [None, *Edition]
+        edition = col1.selectbox(
+            "Édition Odoo",
+            editions,
+            index=editions.index(profile.edition),
+            format_func=lambda e: "Non précisée" if e is None else EDITION_LABELS[e],
+            help="En Community, les étapes qui exigent un module Enterprise sont hors plan.",
+        )
         modules = st.multiselect(
             "Modules souhaités *",
             list(MODULE_LABELS),
@@ -197,6 +216,16 @@ with tab_profile:
         uses_checks = st.checkbox("Paiement des fournisseurs par chèque", profile.uses_checks)
         tracks_lots = st.checkbox("Suivi par lots", profile.tracks_lots)
         make_to_order = st.checkbox("Fabrication à la commande", profile.make_to_order)
+        st.caption("Options France")
+        uses_direct_debit = st.checkbox(
+            "Encaissement des clients par prélèvement SEPA", profile.uses_direct_debit
+        )
+        b2g_invoicing = st.checkbox(
+            "Clients du secteur public (factures via Chorus Pro)", profile.b2g_invoicing
+        )
+        imports_fec_history = st.checkbox(
+            "Reprise de l'historique comptable par fichier FEC", profile.imports_fec_history
+        )
         submitted = st.form_submit_button("Enregistrer et calculer le plan")
 
     if submitted:
@@ -207,6 +236,7 @@ with tab_profile:
                 province=province,
                 activity=activity,
                 size=size,
+                edition=edition,
                 tax_regime=tax_regime or None,
                 modules=modules,
                 fiscal_year_end=fiscal_year_end,
@@ -214,6 +244,9 @@ with tab_profile:
                 uses_checks=uses_checks,
                 tracks_lots=tracks_lots,
                 make_to_order=make_to_order,
+                uses_direct_debit=uses_direct_debit,
+                b2g_invoicing=b2g_invoicing,
+                imports_fec_history=imports_fec_history,
             )
         except ValueError as exc:
             st.error(f"Profil invalide : {exc}")
@@ -268,6 +301,7 @@ with tab_plan:
                     "Statut": item.status.label,
                     "Prérequis bloquants": ", ".join(info.blocking),
                     "À confirmer": "" if rec.verified else "À confirmer",
+                    "Édition": "Enterprise" if catalog.enterprise_modules(step) else "",
                     "Identifiant": step.id,
                 }
             )
@@ -300,8 +334,22 @@ with tab_step:
 
         st.subheader(step.title)
         st.write(step.objective)
+        enterprise = catalog.enterprise_modules(step)
+        if enterprise:
+            st.markdown(
+                f":violet[**Enterprise**] module(s) absent(s) de l'édition Community : "
+                f"{', '.join(f'`{m}`' for m in enterprise)}"
+            )
         st.markdown("**Chemin de menu**")
         st.code(step.menu_path, language=None)
+        if (
+            project.profile.edition is Edition.COMMUNITY
+            and step.menu_items[0].removesuffix(" app") == "Accounting"
+        ):
+            st.caption(
+                "En Community, l'application comptable s'appelle Invoicing (Facturation) : "
+                "le chemin commence par Invoicing au lieu d'Accounting."
+            )
         st.markdown("**Valeur recommandée**")
         st.write(rec.value)
         if not rec.verified:
@@ -420,7 +468,8 @@ with tab_export:
     else:
         st.write(
             "Une ligne par étape : statut, valeur recommandée (avec la colonne « À confirmer »), "
-            "valeur retenue, commentaire, sources et version documentaire."
+            "valeur retenue, commentaire, sources, version documentaire et édition requise. "
+            "La feuille Checklist reprend les étapes du plan dans l'ordre, prête à imprimer."
         )
         st.download_button(
             "Télécharger le cahier (Excel)",
@@ -428,3 +477,22 @@ with tab_export:
             file_name=f"cahier_parametrage_{project.id}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+        st.subheader("Modèles de fichiers d'import")
+        templates = get_import_templates().for_project(project)
+        if not templates:
+            st.info("Aucun modèle d'import ne correspond aux étapes du plan.")
+        else:
+            st.write(
+                "Un fichier Excel par jeu de données à charger dans Odoo, limité aux étapes du "
+                "plan. En-têtes au nom technique des champs, feuille Aide avec le sens et un "
+                "exemple de chaque colonne."
+            )
+            for template in templates:
+                st.write(f"- {template.title} (`{template.model}`)")
+            st.download_button(
+                "Télécharger les modèles d'import (.zip)",
+                data=export_templates_zip(project, catalog, get_import_templates()),
+                file_name=f"modeles_import_{project.id}.zip",
+                mime="application/zip",
+            )

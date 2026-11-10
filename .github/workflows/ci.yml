@@ -36,8 +36,10 @@ jobs:
         run: python scripts/fetch_docs.py
       - name: Build index
         run: python scripts/build_index.py
-      - name: Pytest against the documentation
-        run: pytest tests/test_journeys_data.py tests/test_knowledge.py
+      - name: Refresh Community modules and fields (odoo/odoo 18.0)
+        run: python scripts/fetch_editions.py
+      - name: Pytest against the documentation and the Community source
+        run: pytest tests/test_journeys_data.py tests/test_knowledge.py tests/test_imports.py
 
   app-smoke:
     # Démarre l'app en mode headless sur un dépôt neuf, comme sur Streamlit Community Cloud :

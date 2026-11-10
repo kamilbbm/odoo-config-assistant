@@ -83,7 +83,11 @@ def applicable_steps(
     for journey in catalog.for_version(erp, version):
         if not journey.applies_to(profile):
             continue
-        result.extend((journey.id, step) for step in journey.steps if step.applies_to(profile))
+        result.extend(
+            (journey.id, step)
+            for step in journey.steps
+            if step.applies_to(profile) and catalog.is_available(step, profile)
+        )
     return result
 
 
@@ -222,7 +226,10 @@ def set_status(project: Project, step_id: str, status: StepStatus, catalog: Cata
     if status is StepStatus.VALIDATED and not item.status.is_complete:
         raise StatusTransitionError(f"L'étape {step_id} doit être à Fait avant d'être validée")
     reopening = item.status is StepStatus.OUT_OF_SCOPE and status is not StepStatus.OUT_OF_SCOPE
-    if reopening and not catalog.step(step_id).applies_to(project.profile):
+    step = catalog.step(step_id)
+    if reopening and not (
+        step.applies_to(project.profile) and catalog.is_available(step, project.profile)
+    ):
         raise StatusTransitionError(f"L'étape {step_id} n'est pas applicable au profil actuel")
     return update_step(project, step_id, status=status)
 
