@@ -94,13 +94,13 @@ def main(argv: list[str] | None = None) -> int:
             page.screenshot(path=args.out / "02-fiche-etape.png", full_page=True)
 
             open_tab(page, "Assistant")
-            page.get_by_label("Question").fill(
+            page.locator('[data-testid="stMain"]').get_by_label("Question", exact=True).fill(
                 "Comment configurer les positions fiscales au Québec ?"
             )
-            page.get_by_role("button", name="Demander").click()
-            page.get_by_text(re.compile("Positions fiscales|Fiscal positions")).first.wait_for(
-                timeout=30000
-            )
+            page.locator('[data-testid="stMain"]').get_by_role("button", name="Demander").click()
+            page.locator('[data-testid="stMain"]').get_by_text(
+                re.compile("Positions fiscales|Fiscal positions")
+            ).first.wait_for(timeout=30000)
             settle(page)
             page.screenshot(path=args.out / "03-assistant.png", full_page=True)
 

@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from odoo_config_assistant import (  # noqa: E402
     DOC_VERSION,
     ERP,
+    conversation,
     repository,
 )
 from odoo_config_assistant.access import (  # noqa: E402
@@ -38,7 +39,7 @@ from odoo_config_assistant.access import (  # noqa: E402
     edit_step,
     visible_projects,
 )
-from odoo_config_assistant.assistant import answer, load_env_file, make_client  # noqa: E402
+from odoo_config_assistant.assistant import load_env_file, make_client  # noqa: E402
 from odoo_config_assistant.db import ROLE_LABELS, Database, Organisation, Role, User  # noqa: E402
 from odoo_config_assistant.engine import (  # noqa: E402
     IncompleteProfileError,
@@ -703,6 +704,18 @@ if "Fiche étape" in tabs:
                         f"({prerequisite})"
                     )
 
+            step_exchanges = conversation.history(db, user, project, selected)
+            if step_exchanges:
+                with st.expander(
+                    f"Échanges avec l'assistant sur cette étape ({len(step_exchanges)})"
+                ):
+                    for exchange in step_exchanges:
+                        st.markdown(
+                            f"**{exchange.question}** · {exchange.created_at[:10]} · "
+                            + ("couverte" if exchange.covered else "non couverte")
+                        )
+                        st.write(exchange.text)
+
             st.markdown("**Sources**")
             for source in step.sources:
                 st.markdown(f"[{source.title}]({source.url}) · `{source.path}`")
@@ -752,13 +765,63 @@ if "Fiche étape" in tabs:
 
 # --------------------------------------------------------------------------- E-05 assistant
 
+
+def render_exchange(exchange, compact: bool = False) -> None:
+    with st.container(border=True):
+        context = catalog.step(exchange.step_id).title if exchange.step_id in step_ids_all else ""
+        st.markdown(f"**{exchange.question}**" + (f"  \n_Étape : {context}_" if context else ""))
+        if exchange.covered:
+            st.write(exchange.text)
+        else:
+            st.warning(exchange.text)
+        for citation in conversation.citations(exchange)[: 2 if compact else None]:
+            if compact:
+                st.markdown(citation.markdown())
+                continue
+            with st.expander(citation.markdown()):
+                if citation.translation_note:
+                    st.caption(citation.translation_note)
+                st.text(citation.excerpt)
+        author = users_by_id.get(exchange.user_id)
+        st.caption(
+            f"{exchange.created_at.replace('T', ' ')[:16]} UTC"
+            + (f" · {author.name}" if author else "")
+            + f" · Odoo {exchange.version} · commit `{(exchange.doc_commit or 'inconnu')[:12]}`"
+        )
+
+
+def ask_question(question: str, step_id: str | None) -> None:
+    try:
+        conversation.ask(
+            db,
+            user,
+            retriever,
+            catalog,
+            question,
+            project=project,
+            step_id=step_id,
+            client=client,
+            doc_commit=doc_commit,
+        )
+    except (AccessDenied, ValueError) as exc:
+        flash("error", str(exc))
+
+
+step_ids_all = catalog_step_ids(catalog)
+users_by_id = {u.id: u for u in db.users()}
+open_step = st.session_state.get("step_id") if project else None
+if project is not None and open_step not in {s.step_id for s in project.plan}:
+    open_step = None
+
 with tabs["Assistant"]:
     st.header("Assistant documentaire")
     st.caption(
         "Réponses fondées uniquement sur la documentation Odoo 18.0 indexée, avec sources. "
         "Extraits en français (recomposés depuis les traductions officielles) ; un passage non "
-        "traduit est affiché en anglais avec une mention."
+        "traduit est affiché en anglais avec une mention. Les échanges sont conservés avec la "
+        "version documentaire utilisée (RG-008)."
     )
+    show_flash()
     if retriever is None:
         st.warning(f"Index indisponible : lancer `python scripts/sync_docs.py` ({index_error}).")
     else:
@@ -767,39 +830,46 @@ with tabs["Assistant"]:
             context = st.selectbox(
                 "Contexte",
                 context_ids,
+                index=context_ids.index(open_step) if open_step in context_ids else 0,
                 format_func=lambda i: "Aucune étape" if i is None else catalog.step(i).title,
             )
             question = st.text_input("Question", placeholder="Ex. : Comment imprimer des chèques ?")
             asked = st.form_submit_button("Demander")
         if asked and question.strip():
-            result = answer(
-                question,
-                retriever,
-                erp=project.erp if project else ERP,
-                version=project.version if project else DOC_VERSION,
-                doc_commit=doc_commit,
-                step=catalog.step(context) if context else None,
-                country=project.profile.country if project else None,
-                client=client,
-            )
-            history = st.session_state.setdefault("history", [])
-            history.insert(0, result)
-        for result in st.session_state.get("history", []):
-            with st.container(border=True):
-                st.markdown(f"**{result.question}**")
-                if result.covered:
-                    st.write(result.text)
-                else:
-                    st.warning(result.text)
-                for citation in result.citations:
-                    with st.expander(citation.markdown()):
-                        if citation.translation_note:
-                            st.caption(citation.translation_note)
-                        st.text(citation.excerpt)
-                st.caption(
-                    f"Mode : {result.mode} · Odoo {result.version} · "
-                    f"commit `{(result.doc_commit or 'inconnu')[:12]}`"
-                )
+            ask_question(question, context)  # affiché ci-dessous, dans le même passage
+            show_flash()
+    filter_ids = [None] + ([s.step_id for s in project.plan] if project else [])
+    shown = st.selectbox(
+        "Historique",
+        filter_ids,
+        format_func=lambda i: (
+            ("Tous les échanges du projet" if project else "Mes échanges")
+            if i is None
+            else catalog.step(i).title
+        ),
+        key="history_filter",
+    )
+    for exchange in conversation.history(db, user, project, shown):
+        render_exchange(exchange)
+
+# Panneau de l'assistant accessible depuis toutes les pages (E-05), contextualisé à l'étape
+# ouverte dans la fiche étape.
+with st.sidebar:
+    st.divider()
+    label = "Assistant"
+    if open_step:
+        label += f" · {catalog.step(open_step).title}"
+    with st.expander(label, expanded=False):
+        if retriever is None:
+            st.caption("Index indisponible.")
+        else:
+            with st.form("sidebar-question", clear_on_submit=True):
+                quick = st.text_input("Question sur l'étape ouverte" if open_step else "Question")
+                if st.form_submit_button("Demander") and quick.strip():
+                    ask_question(quick, open_step)
+            latest = conversation.history(db, user, project, open_step)[:1]
+            for exchange in latest:
+                render_exchange(exchange, compact=True)
 
 
 # --------------------------------------------------------------------------- E-06 deliverables
