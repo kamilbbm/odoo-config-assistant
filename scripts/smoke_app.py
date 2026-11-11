@@ -71,7 +71,10 @@ def main() -> int:
                 page.get_by_role("tab", name="Assistant").click()
                 page.get_by_label("Question").fill("Comment imprimer des chèques ?")
                 page.get_by_role("button", name="Demander").click()
-                page.get_by_text("Writing checks", exact=False).first.wait_for(timeout=30000)
+                # Titre recomposé en français (F-003), en anglais si la traduction manque.
+                page.get_by_text(re.compile("Émettre des chèques|Writing checks")).first.wait_for(
+                    timeout=30000
+                )
                 body = page.inner_text("body")
                 page.get_by_role("tab", name="Plan").click()
                 settle(page)

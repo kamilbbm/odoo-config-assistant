@@ -5,6 +5,7 @@ Run: streamlit run app/streamlit_app.py
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -97,6 +98,20 @@ def get_retriever() -> BM25Retriever:
     from odoo_config_assistant.sources import ensure_index
 
     return BM25Retriever(ensure_index().chunks)
+
+
+@st.cache_resource(show_spinner=False)
+def get_menu_labels(commit: str | None) -> dict[str, str]:
+    """Libellés de menus anglais -> français de la version active (F-003)."""
+    if not DEFAULT_INDEX_PATH.exists():
+        return {}
+    data = json.loads(DEFAULT_INDEX_PATH.read_text(encoding="utf-8"))
+    return data.get("menu_labels", {})
+
+
+def french_menu_path(items: list[str], labels: dict[str, str]) -> str | None:
+    french = [labels.get(item) for item in items]
+    return None if None in french else " > ".join(french)
 
 
 def load_retriever() -> tuple[BM25Retriever | None, str | None]:
@@ -355,7 +370,13 @@ with tab_step:
                 f"{', '.join(f'`{m}`' for m in enterprise)}"
             )
         st.markdown("**Chemin de menu**")
-        st.code(step.menu_path, language=None)
+        menu_fr = french_menu_path(step.menu_items, get_menu_labels(doc_commit))
+        if menu_fr:
+            st.code(menu_fr, language=None)
+            st.caption(f"Interface en anglais : {step.menu_path}")
+        else:
+            st.code(step.menu_path, language=None)
+            st.caption("Libellés de menu en anglais : traduction absente de la documentation.")
         if (
             project.profile.edition is Edition.COMMUNITY
             and step.menu_items[0].removesuffix(" app") == "Accounting"
@@ -467,6 +488,8 @@ with tab_assistant:
                     st.warning(result.text)
                 for citation in result.citations:
                     with st.expander(citation.markdown()):
+                        if citation.translation_note:
+                            st.caption(citation.translation_note)
                         st.text(citation.excerpt)
                 st.caption(
                     f"Mode : {result.mode} · Odoo {result.version} · "

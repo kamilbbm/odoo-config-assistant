@@ -70,8 +70,8 @@ def _context_block(hits: list[Hit]) -> str:
     for n, hit in enumerate(hits, start=1):
         chunk = hit.chunk
         parts.append(
-            f"<extrait numero={n} page={chunk.path!r} section={chunk.section_title!r}>\n"
-            f"{chunk.text}\n</extrait>"
+            f"<extrait numero={n} page={chunk.path!r} "
+            f"section={chunk.display_section_title!r}>\n{chunk.display_text}\n</extrait>"
         )
     return "\n\n".join(parts)
 

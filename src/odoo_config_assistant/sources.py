@@ -17,13 +17,20 @@ from pathlib import Path
 
 from odoo_config_assistant import DOC_VERSION
 from odoo_config_assistant.journeys import load_catalog
-from odoo_config_assistant.knowledge import DEFAULT_INDEX_PATH, KnowledgeIndex, build_index
+from odoo_config_assistant.knowledge import (
+    DEFAULT_INDEX_PATH,
+    DEFAULT_TRANSLATION_THRESHOLD,
+    KnowledgeIndex,
+    build_index,
+)
+from odoo_config_assistant.translation import LOCALE_DIR, Translations, load_translations
 
 ROOT = Path(__file__).resolve().parents[2]
 REPO_URL = "https://github.com/odoo/documentation"
 DEFAULT_DOCS_DIR = ROOT / "vendor" / "odoo-docs"
 BASE_SCOPE = ["content/applications/finance", "content/applications/inventory_and_mrp"]
-RST_ONLY_PATTERNS = ["/content/**/*.rst"]
+# Pages RST et traductions françaises (F-003) : environ 34 Mo au lieu du dépôt complet.
+RST_ONLY_PATTERNS = ["/content/**/*.rst", "/locale/fr/LC_MESSAGES/*.po"]
 
 
 def version_file(dest: Path) -> Path:
@@ -57,6 +64,8 @@ def fetch_docs(
         raise SystemExit(f"ERR-002 branche introuvable : {branch} sur {repo}")
 
     if (dest / ".git").is_dir():
+        if rst_only and _git("config", "--get", "core.sparseCheckout", cwd=dest) == "true":
+            _git("sparse-checkout", "set", "--no-cone", *RST_ONLY_PATTERNS, cwd=dest)
         _git("fetch", "--depth", "1", "origin", branch, cwd=dest)
         _git("checkout", "-q", "-B", branch, "FETCH_HEAD", cwd=dest)
     elif rst_only:
@@ -89,10 +98,12 @@ def fetch_docs(
 
 
 def page_hashes(docs: Path) -> dict[str, str]:
-    """SHA-256 of every RST page of the clone, by path relative to the repository."""
+    """SHA-256 of every RST page and French .po file of the clone, by relative path."""
+    files = sorted((docs / "content").rglob("*.rst"))
+    files += sorted((docs / LOCALE_DIR).glob("*.po"))
     return {
         path.relative_to(docs).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in sorted((docs / "content").rglob("*.rst"))
+        for path in files
     }
 
 
@@ -101,9 +112,12 @@ def build_knowledge_index(
     out: Path | None = DEFAULT_INDEX_PATH,
     previous: KnowledgeIndex | None = None,
     errors: list[tuple[str, str]] | None = None,
+    translations: Translations | None = None,
+    threshold: float = DEFAULT_TRANSLATION_THRESHOLD,
 ) -> KnowledgeIndex:
     """Index finance, inventory_and_mrp and every page cited by the journeys.
 
+    The pages are recomposed in French from the .po files of the clone when present (F-003).
     ``out=None`` builds without writing (candidate version of a synchronization).
     """
     path = version_file(docs)
@@ -112,6 +126,8 @@ def build_knowledge_index(
     info = json.loads(path.read_text(encoding="utf-8"))
     catalog = load_catalog()
     cited = sorted({s.path for j in catalog.journeys for step in j.steps for s in step.sources})
+    if translations is None and (docs / LOCALE_DIR).is_dir():
+        translations = load_translations(docs)
     index = build_index(
         docs,
         info["commit"],
@@ -119,6 +135,8 @@ def build_knowledge_index(
         version=info["branch"],
         previous=previous,
         errors=errors,
+        translations=translations,
+        threshold=threshold,
     )
     index.page_hashes = page_hashes(docs)
     if out is not None:

@@ -36,8 +36,13 @@ from pydantic import BaseModel, Field
 
 from odoo_config_assistant import DOC_VERSION, sources
 from odoo_config_assistant.journeys import load_catalog
-from odoo_config_assistant.knowledge import DEFAULT_INDEX_PATH, KnowledgeIndex
+from odoo_config_assistant.knowledge import (
+    DEFAULT_INDEX_PATH,
+    DEFAULT_TRANSLATION_THRESHOLD,
+    KnowledgeIndex,
+)
 from odoo_config_assistant.models import Catalog
+from odoo_config_assistant.translation import load_translations
 
 _LABEL = re.compile(r"^\.\. _([^:]+):", re.M)
 
@@ -105,6 +110,7 @@ class SyncReport(BaseModel):
     drop_threshold: float = 0.05
     forced_by: str | None = None
     notes: list[str] = Field(default_factory=list)
+    translation_rates: dict[str, float] = Field(default_factory=dict)
 
     @property
     def has_alerts(self) -> bool:
@@ -152,9 +158,28 @@ class SyncReport(BaseModel):
                 f"- `{s.step_id}` {s.title} : page {s.change} ({', '.join(s.paths)})"
                 for s in self.impacted_steps
             ]
+        if self.translation_rates:
+            rates = list(self.translation_rates.values())
+            lines.append(
+                f"- Recomposition française : {len(rates)} pages indexées traduites, taux moyen "
+                f"{sum(rates) / len(rates):.0%}"
+            )
         if self.anomalies:
             lines += ["", "### Anomalies", ""]
-            lines += [f"- {a.code} (étape {a.stage}) : {a.message}" for a in self.anomalies]
+            partial = [a for a in self.anomalies if a.code == "ERR-004"]
+            lines += [
+                f"- {a.code} (étape {a.stage}) : {a.message}"
+                + (f" ({a.path})" if a.path and a.code != "ERR-007" else "")
+                for a in self.anomalies
+                if a.code != "ERR-004"
+            ]
+            if partial:
+                shown = ", ".join(f"`{a.path}`" for a in partial[:10])
+                more = f" et {len(partial) - 10} autres" if len(partial) > 10 else ""
+                lines.append(
+                    f"- ERR-004 (étape 3) : {len(partial)} pages en traduction partielle, "
+                    f"publiées avec la mention : {shown}{more}"
+                )
         if self.modified or self.deleted:
             lines += ["", "<details><summary>Pages modifiées ou supprimées</summary>", ""]
             lines += [f"- modifiée : `{p}`" for p in self.modified]
@@ -170,6 +195,11 @@ class SyncSettings:
     drop_threshold: float = 0.05
     retries: int = 3
     retry_delay: float = 15 * 60
+    translation_threshold: float = DEFAULT_TRANSLATION_THRESHOLD
+
+
+def _rst_count(hashes: dict[str, str]) -> int:
+    return sum(1 for path in hashes if path.endswith(".rst"))
 
 
 def sync_dir(index_path: Path = DEFAULT_INDEX_PATH) -> Path:
@@ -321,7 +351,7 @@ def synchronize(
     active = KnowledgeIndex.load(index_path) if index_path.exists() else None
     if active is not None:
         report.active_commit = active.commit
-        report.pages_before = len(active.page_hashes)
+        report.pages_before = _rst_count(active.page_hashes)
 
     # Step 1: candidate version.
     info = _fetch(report, docs, commit, settings, sleep)
@@ -337,7 +367,7 @@ def synchronize(
             "la version active n'a pas d'empreintes de pages (index antérieur) : comparaison "
             "impossible, toutes les pages sont comptées comme ajoutées"
         )
-    report.pages_after = len(hashes)
+    report.pages_after = _rst_count(hashes)
     report.added = sorted(set(hashes) - set(before))
     report.deleted = sorted(set(before) - set(hashes))
     report.modified = sorted(p for p in set(hashes) & set(before) if hashes[p] != before[p])
@@ -347,9 +377,28 @@ def synchronize(
         return _save_report(report, index_path)
 
     # Step 4: candidate index, built aside (step 3, French recomposition, is F-003).
+    # Step 3: French recomposition (F-003). An unreadable .po file leaves its domain in English.
+    translations = load_translations(docs)
+    report.anomalies += [
+        Anomaly(
+            code="ERR-003",
+            stage=3,
+            message=f"traduction illisible, pages du domaine {domain} en anglais : {msg}",
+        )
+        for domain, msg in sorted(translations.failed_domains.items())
+    ]
+
+    # Step 4: candidate index, built aside.
     errors: list[tuple[str, str]] = []
     try:
-        candidate = sources.build_knowledge_index(docs, None, previous=active, errors=errors)
+        candidate = sources.build_knowledge_index(
+            docs,
+            None,
+            previous=active,
+            errors=errors,
+            translations=translations,
+            threshold=settings.translation_threshold,
+        )
     except Exception as exc:
         report.anomalies.append(
             Anomaly(code="ERR-006", stage=4, message=f"indexation interrompue : {exc}")
@@ -359,19 +408,42 @@ def synchronize(
         Anomaly(code="ERR-005", stage=4, message=f"page exclue : {message}", path=path)
         for path, message in errors
     ]
+    report.translation_rates = {
+        path: rate for path, rate in candidate.translation_rates.items() if rate is not None
+    }
+    partial = sorted(
+        path
+        for path, rate in candidate.translation_rates.items()
+        if rate is not None and rate < settings.translation_threshold
+    )
+    report.anomalies += [
+        Anomaly(
+            code="ERR-004",
+            stage=3,
+            message=(
+                f"traduction partielle ({candidate.translation_rates[path]:.0%}), page publiée "
+                "avec la mention"
+            ),
+            path=path,
+        )
+        for path in partial
+    ]
 
     # Step 5: controls, publication, alerts.
     report.anomalies += _source_checks(catalog, docs, hashes)
     if before:
         report.impacted_steps = _impacted(catalog, set(report.modified), set(report.deleted))
-    dropped = bool(before) and len(hashes) < len(before) * (1 - settings.drop_threshold)
+    dropped = bool(before) and _rst_count(hashes) < _rst_count(before) * (
+        1 - settings.drop_threshold
+    )
     if dropped:
         report.anomalies.append(
             Anomaly(
                 code="ERR-008",
                 stage=5,
                 message=(
-                    f"pages en baisse : {len(before)} -> {len(hashes)}, au-delà du seuil de "
+                    f"pages en baisse : {_rst_count(before)} -> {_rst_count(hashes)}, "
+                    "au-delà du seuil de "
                     f"{settings.drop_threshold:.0%}"
                 ),
             )

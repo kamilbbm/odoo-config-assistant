@@ -250,3 +250,45 @@ def test_active_index_without_page_hashes_is_reingested_with_a_note(run):
     report = run()
     assert report.status is SyncStatus.PUBLISHED and len(report.added) == 21
     assert report.notes and "empreintes" in report.markdown()
+
+
+FR_PO = r'''msgid ""
+msgstr ""
+
+#: ../../content/applications/finance/accounting/taxes.rst:2
+msgid "Taxes"
+msgstr "Taxes et TVA"
+
+#: ../../content/applications/finance/accounting/taxes.rst:7
+msgid "Default taxes"
+msgstr ""
+
+#: ../../content/applications/finance/accounting/taxes.rst:10
+msgid "Set the default taxes of new products here, please."
+msgstr ""
+'''
+
+
+def test_f003_french_recomposition_and_err004_partial_translation(run, origin):
+    origin.write("locale/fr/LC_MESSAGES/finance.po", FR_PO)
+    origin.commit()
+    report = run(settings=SyncSettings(retries=1, translation_threshold=0.5))
+    assert report.status is SyncStatus.PUBLISHED
+    assert report.translation_rates[CITED] == pytest.approx(1 / 3)
+    assert [(a.code, a.path) for a in report.anomalies if a.code == "ERR-004"] == [
+        ("ERR-004", CITED)
+    ]
+    chunks = [c for c in KnowledgeIndex.load(run.index).chunks if c.path == CITED]
+    assert chunks[0].page_title_fr == "Taxes et TVA"
+    assert "Traduction partielle" in chunks[0].translation_note
+    assert "pages en traduction partielle" in report.markdown()
+
+
+def test_err003_unreadable_translation_file_keeps_pages_in_english(run, origin):
+    origin.write("locale/fr/LC_MESSAGES/finance.po", "not a po file\n")
+    origin.commit()
+    report = run()
+    assert report.status is SyncStatus.PUBLISHED
+    assert any(a.code == "ERR-003" and "finance" in a.message for a in report.anomalies)
+    chunks = [c for c in KnowledgeIndex.load(run.index).chunks if c.path == CITED]
+    assert all(c.text_fr is None for c in chunks)
