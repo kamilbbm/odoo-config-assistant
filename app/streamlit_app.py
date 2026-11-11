@@ -52,6 +52,7 @@ from odoo_config_assistant.engine import (  # noqa: E402
     recompute_plan,
 )
 from odoo_config_assistant.export import export_bytes  # noqa: E402
+from odoo_config_assistant.gap import GapReport, GapStatus, check_project  # noqa: E402
 from odoo_config_assistant.imports import (  # noqa: E402
     export_templates_zip,
     load_import_templates,
@@ -76,6 +77,11 @@ from odoo_config_assistant.models import (  # noqa: E402
     Profile,
     Project,
     StepStatus,
+)
+from odoo_config_assistant.odoo_client import (  # noqa: E402
+    OdooConnectionError,
+    ReadOnlyOdoo,
+    ReadOnlyViolation,
 )
 from odoo_config_assistant.repository import catalog_for  # noqa: E402
 from odoo_config_assistant.seed import demo_accounts, ensure_ready, setup_organisation  # noqa: E402
@@ -324,7 +330,7 @@ if is_project_user:
     screens += ["Tableau de bord", "Projet", "Plan", "Fiche étape"]
 screens.append("Assistant")
 if project is not None and can_manage_project(db, user, project.id):
-    screens.append("Livrables")
+    screens += ["Livrables", "Contrôle d'écart"]
 if can_admin(user):
     screens.append("Administration")
 if can_manage_sources(user):
@@ -1395,6 +1401,61 @@ if "Référentiel" in tabs:
                         "Par": h["user_name"] or "",
                     }
                     for h in history
+                ],
+                hide_index=True,
+                width="stretch",
+            )
+
+
+# --------------------------------------------------------------------------- phase 2 gap control
+
+if "Contrôle d'écart" in tabs and project is not None:
+    with tabs["Contrôle d'écart"]:
+        st.header("Contrôle d'écart avec l'instance Odoo")
+        st.write(
+            "Lecture de la configuration réelle de l'instance du client et comparaison avec le "
+            "plan (F-014). Accès exclusivement en lecture seule (RG-016) : seules les méthodes "
+            "de lecture de l'API externe sont autorisées. La clé d'API n'est pas enregistrée."
+        )
+        with st.form("gap"):
+            col1, col2 = st.columns(2)
+            url = col1.text_input("Adresse de l'instance", placeholder="https://client.odoo.com")
+            database_name = col2.text_input("Base de données")
+            login = col1.text_input("Identifiant (courriel de l'utilisateur Odoo)")
+            api_key = col2.text_input("Clé d'API", type="password")
+            run = st.form_submit_button("Lire l'instance et comparer")
+        if run:
+            try:
+                with st.spinner("Lecture de l'instance"):
+                    gap_report = check_project(
+                        project, catalog, ReadOnlyOdoo(url.strip(), database_name, login, api_key)
+                    )
+            except (ValueError, OdooConnectionError, ReadOnlyViolation) as exc:
+                st.error(f"Contrôle impossible : {exc}")
+            else:
+                db.save_gap_report(project.id, user.id, gap_report.model_dump_json())
+        stored = db.gap_reports(project.id)
+        if stored:
+            gap_report = GapReport.model_validate_json(stored[0])
+            st.subheader(
+                f"Dernier contrôle : {gap_report.checked_at:%Y-%m-%d %H:%M} UTC, "
+                f"{gap_report.company or ''} ({gap_report.url}, Odoo {gap_report.server_version})"
+            )
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Conformes", gap_report.count(GapStatus.OK))
+            col2.metric("Écarts", gap_report.count(GapStatus.GAP))
+            col3.metric("Non vérifiables", gap_report.count(GapStatus.UNKNOWN))
+            col4.metric("Étapes faites en écart", len(gap_report.discrepancies))
+            st.dataframe(
+                [
+                    {
+                        "Étape": r.title,
+                        "Statut du plan": r.plan_status,
+                        "Instance": r.status.value,
+                        "Détail": r.detail,
+                        "À reprendre": "oui" if r.discrepancy else "",
+                    }
+                    for r in gap_report.results
                 ],
                 hide_index=True,
                 width="stretch",

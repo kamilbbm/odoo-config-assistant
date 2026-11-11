@@ -90,6 +90,13 @@ CREATE TABLE IF NOT EXISTS step_reviews (
     created_at TEXT NOT NULL,
     PRIMARY KEY (step_id, report_id)
 );
+CREATE TABLE IF NOT EXISTS gap_checks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     kind TEXT NOT NULL,
@@ -433,9 +440,7 @@ class Database:
         query += " ORDER BY id DESC"
         with self.connect() as con:
             rows = con.execute(query, params).fetchall()
-        return [
-            Exchange.model_validate({**json.loads(r["data"]), "id": r["id"]}) for r in rows
-        ]
+        return [Exchange.model_validate({**json.loads(r["data"]), "id": r["id"]}) for r in rows]
 
     # ----------------------------------------------------------------------- deliverables
 
@@ -550,3 +555,21 @@ class Database:
                 "SELECT step_id FROM step_reviews WHERE report_id = ?", (report_id,)
             ).fetchall()
         return {r["step_id"] for r in rows}
+
+    # ----------------------------------------------------------------------- gap control (F-014)
+
+    def save_gap_report(self, project_id: str, user_id: int | None, data: str) -> None:
+        with self.connect() as con:
+            con.execute(
+                "INSERT INTO gap_checks (project_id, user_id, data, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (project_id, user_id, data, _now()),
+            )
+
+    def gap_reports(self, project_id: str) -> list[str]:
+        """Stored reports (JSON), most recent first."""
+        with self.connect() as con:
+            rows = con.execute(
+                "SELECT data FROM gap_checks WHERE project_id = ? ORDER BY id DESC", (project_id,)
+            ).fetchall()
+        return [r["data"] for r in rows]

@@ -30,6 +30,7 @@ TABS = [
     "Fiche étape",
     "Assistant",
     "Livrables",
+    "Contrôle d'écart",
     "Administration",
     "Sources",
     "Référentiel",

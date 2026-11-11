@@ -63,11 +63,12 @@ def test_demo_button_logs_in(db_path):
         (
             "admin@organisation.example",
             ["Tableau de bord", "Projet", "Plan", "Fiche étape", "Assistant", "Livrables",
-             "Administration", "Sources", "Référentiel"],
+             "Contrôle d'écart", "Administration", "Sources", "Référentiel"],
         ),
         (
             "consultant@organisation.example",
-            ["Tableau de bord", "Projet", "Plan", "Fiche étape", "Assistant", "Livrables"],
+            ["Tableau de bord", "Projet", "Plan", "Fiche étape", "Assistant", "Livrables",
+             "Contrôle d'écart"],
         ),
         (
             "client.vauban@organisation.example",
