@@ -244,3 +244,33 @@ def update_step(project: Project, step_id: str, **changes) -> Project:
             )
         plan.append(item)
     return project.model_copy(update={"plan": plan, "updated_at": _now()})
+
+
+@dataclass(frozen=True)
+class Progress:
+    """Progress of a project for the dashboard (E-01): steps in plan, done, validated."""
+
+    total: int
+    done: int
+    validated: int
+    by_domain: dict[str, tuple[int, int]]  # domain -> (done or validated, in plan)
+
+    @property
+    def ratio(self) -> float:
+        return (self.done + self.validated) / self.total if self.total else 0.0
+
+
+def project_progress(project: Project, catalog: Catalog) -> Progress:
+    in_scope = project.in_scope()
+    by_domain: dict[str, list[int]] = {}
+    for item in in_scope:
+        domain = catalog.journey_of(item.step_id).domain
+        counts = by_domain.setdefault(domain, [0, 0])
+        counts[1] += 1
+        counts[0] += int(item.status.is_complete)
+    return Progress(
+        total=len(in_scope),
+        done=sum(1 for s in in_scope if s.status is StepStatus.DONE),
+        validated=sum(1 for s in in_scope if s.status is StepStatus.VALIDATED),
+        by_domain={d: (c[0], c[1]) for d, c in by_domain.items()},
+    )

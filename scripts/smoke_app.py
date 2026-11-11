@@ -7,6 +7,7 @@ Usage: python scripts/smoke_app.py
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -20,7 +21,18 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 PORT = 8598
 BASE = f"http://localhost:{PORT}"
-TABS = ["Profil", "Plan", "Fiche étape", "Assistant", "Export", "Sources"]
+# Compte de démonstration administrateur : il voit tous les écrans (E-01 à E-08).
+LOGIN = "Alex Administrateur (Administrateur)"
+TABS = [
+    "Tableau de bord",
+    "Projet",
+    "Plan",
+    "Fiche étape",
+    "Assistant",
+    "Livrables",
+    "Administration",
+    "Sources",
+]
 BAD_LOG = re.compile(r"Traceback|Exception|Error|Warning|deprecat|Please replace", re.IGNORECASE)
 
 
@@ -46,6 +58,8 @@ def settle(page) -> None:
 
 def main() -> int:
     log_path = Path(tempfile.mkstemp(prefix="streamlit-", suffix=".log")[1])
+    # Base neuve, chargée avec les données de démonstration (comme sur Community Cloud).
+    env = {**os.environ, "OCA_DB": str(Path(tempfile.mkdtemp()) / "smoke.db")}
     with log_path.open("w") as log:
         server = subprocess.Popen(
             [
@@ -53,7 +67,7 @@ def main() -> int:
                 "--server.headless", "true", "--server.port", str(PORT),
                 "--browser.gatherUsageStats", "false",
             ],
-            cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+            cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, env=env,
         )  # fmt: skip
         problems: list[str] = []
         try:
@@ -63,6 +77,8 @@ def main() -> int:
                 page = browser.new_page(viewport={"width": 1440, "height": 960})
                 page.goto(BASE)
                 settle(page)  # le premier démarrage télécharge la doc et construit l'index
+                page.get_by_role("button", name=LOGIN).click()
+                settle(page)
                 for tab in TABS:
                     page.get_by_role("tab", name=tab).click()
                     settle(page)

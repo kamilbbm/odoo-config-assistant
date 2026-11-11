@@ -1,0 +1,21 @@
+# Données de démonstration (fictives), chargées dans une base vide quand OCA_DEMO n'est pas 0.
+# L'organisation et les utilisateurs sont des données : rien n'est codé en dur (RG-013).
+# Les adresses utilisent le domaine réservé .example (RFC 2606).
+
+organisation:
+  name: Organisation de démonstration
+  mentions: Document de démonstration, données fictives.
+  demo: true
+
+password: demo-odoo-18
+
+users:
+- {email: admin@organisation.example, name: Alex Administrateur, role: admin}
+- {email: referent@organisation.example, name: Romane Référente, role: referent}
+- {email: consultant@organisation.example, name: Camille Consultante, role: consultant}
+- {email: client.boreal@organisation.example, name: Benoît Boréal, role: client}
+- {email: client.vauban@organisation.example, name: Valérie Vauban, role: client}
+
+projects:
+- {file: projects/exemple.json, members: [consultant@organisation.example, client.boreal@organisation.example]}
+- {file: projects/exemple-fr.json, members: [consultant@organisation.example, client.vauban@organisation.example]}

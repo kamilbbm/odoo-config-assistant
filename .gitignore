@@ -34,3 +34,6 @@ dist/
 
 # Secrets Streamlit (la configuration .streamlit/config.toml reste versionnée)
 .streamlit/secrets.toml
+
+# Base de données applicative
+var/
