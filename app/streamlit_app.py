@@ -80,6 +80,7 @@ from odoo_config_assistant.sync import (  # noqa: E402
     list_reports,
     synchronize,
 )
+from odoo_config_assistant.word import build_docx  # noqa: E402
 
 MODULE_LABELS = {
     "account": "Comptabilité (account)",
@@ -792,13 +793,25 @@ if "Livrables" in tabs and project is not None:
                 "confirmer »), valeur retenue, commentaire, sources, version documentaire et "
                 "édition requise. La feuille Checklist reprend les étapes du plan dans l'ordre."
             )
-            if st.download_button(
+            col1, col2 = st.columns(2)
+            if col1.download_button(
                 "Télécharger le cahier (Excel)",
-                data=export_bytes(project, catalog),
+                data=export_bytes(project, catalog, organisation),
                 file_name=f"cahier_parametrage_{project.id}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             ):
                 db.log_deliverable(project.id, "cahier", "xlsx", user.id)
+            if col2.download_button(
+                "Télécharger le cahier (Word)",
+                data=build_docx(project, catalog, organisation, get_menu_labels(doc_commit)),
+                file_name=f"cahier_parametrage_{project.id}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ):
+                db.log_deliverable(project.id, "cahier", "docx", user.id)
+            st.caption(
+                "Les livrables portent le nom, le logo et les mentions de l'organisation "
+                "(RG-013), définis dans l'écran Administration."
+            )
 
             st.subheader("Modèles de fichiers d'import")
             templates = get_import_templates().for_project(project)
@@ -814,7 +827,9 @@ if "Livrables" in tabs and project is not None:
                     st.write(f"- {template.title} (`{template.model}`)")
                 if st.download_button(
                     "Télécharger les modèles d'import (.zip)",
-                    data=export_templates_zip(project, catalog, get_import_templates()),
+                    data=export_templates_zip(
+                        project, catalog, get_import_templates(), organisation
+                    ),
                     file_name=f"modeles_import_{project.id}.zip",
                     mime="application/zip",
                 ):

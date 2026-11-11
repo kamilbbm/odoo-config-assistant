@@ -2,18 +2,25 @@
 
 One row per plan step: status, recommended value (with an "À confirmer" flag when the value is
 not confirmed by the documentation), retained value, comment, sources and documentation commit.
+
+The deliverable carries the identity of the user organisation (RG-013): name and mentions in
+the header and footer of every sheet, name, mentions and logo on the Projet sheet. Nothing is
+hard-coded: without an organisation, no identity is written.
 """
 
 from __future__ import annotations
 
+import base64
 from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 
 from openpyxl import Workbook
+from openpyxl.drawing.image import Image as XlImage
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from odoo_config_assistant.db import Organisation
 from odoo_config_assistant.models import (
     ACTIVITY_LABELS,
     EDITION_LABELS,
@@ -50,25 +57,48 @@ _CONFIRM_FILL = PatternFill("solid", fgColor="FFF2CC")
 _WRAP = Alignment(wrap_text=True, vertical="top")
 
 
-def build_workbook(project: Project, catalog: Catalog) -> Workbook:
+def build_workbook(
+    project: Project, catalog: Catalog, organisation: Organisation | None = None
+) -> Workbook:
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Cahier de paramétrage"
     _plan_sheet(sheet, project, catalog)
     _checklist_sheet(workbook.create_sheet("Checklist"), project, catalog)
-    _project_sheet(workbook.create_sheet("Projet"), project)
+    _project_sheet(workbook.create_sheet("Projet"), project, organisation)
+    if organisation is not None:
+        for each in workbook.worksheets:
+            _identity(each, organisation, project)
     return workbook
 
 
-def export_bytes(project: Project, catalog: Catalog) -> bytes:
+def _identity(sheet, organisation: Organisation, project: Project) -> None:
+    """RG-013: organisation name in the header, mentions in the footer of every printed page."""
+    sheet.oddHeader.left.text = organisation.name
+    sheet.oddHeader.right.text = project.name
+    sheet.oddFooter.left.text = organisation.mentions
+    sheet.oddFooter.right.text = "Page &P / &N"
+
+
+def logo_stream(organisation: Organisation | None) -> BytesIO | None:
+    if organisation is None or not organisation.logo_b64:
+        return None
+    return BytesIO(base64.b64decode(organisation.logo_b64))
+
+
+def export_bytes(
+    project: Project, catalog: Catalog, organisation: Organisation | None = None
+) -> bytes:
     buffer = BytesIO()
-    build_workbook(project, catalog).save(buffer)
+    build_workbook(project, catalog, organisation).save(buffer)
     return buffer.getvalue()
 
 
-def export_file(project: Project, catalog: Catalog, path: Path) -> Path:
+def export_file(
+    project: Project, catalog: Catalog, path: Path, organisation: Organisation | None = None
+) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    build_workbook(project, catalog).save(path)
+    build_workbook(project, catalog, organisation).save(path)
     return path
 
 
@@ -163,9 +193,15 @@ def _checklist_sheet(sheet, project: Project, catalog: Catalog) -> None:
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
 
 
-def _project_sheet(sheet, project: Project) -> None:
+def _project_sheet(sheet, project: Project, organisation: Organisation | None = None) -> None:
     profile = project.profile
-    rows = [
+    rows = []
+    if organisation is not None:
+        rows += [
+            ("Organisation", organisation.name),
+            ("Mentions", organisation.mentions),
+        ]
+    rows += [
         ("Projet", project.name),
         ("Société", profile.company_name),
         ("ERP", f"{project.erp} {project.version}"),
@@ -191,3 +227,9 @@ def _project_sheet(sheet, project: Project) -> None:
         sheet.cell(row=row, column=1, value=label).font = Font(bold=True)
         cell = sheet.cell(row=row, column=2, value=value)
         cell.alignment = _WRAP
+    logo = logo_stream(organisation)
+    if logo is not None:
+        image = XlImage(logo)
+        scale = 80 / max(image.height, 1)
+        image.width, image.height = image.width * scale, image.height * scale
+        sheet.add_image(image, "D1")
