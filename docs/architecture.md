@@ -1,90 +1,95 @@
-# Architecture de la V0
+# Architecture
 
-La V0 est une tranche verticale de la SFD ([SFD.md](SFD.md)) : du profil de l'entreprise au
-cahier de paramétrage, pour Odoo 18 et trois parcours (Finance au Québec, Finance en France,
-Inventaire et fabrication). Elle reprend les trois couches du schéma fonctionnel de la SFD (2.1.3) :
-Connaissance, Configuration du projet client, Assistance et restitution.
+L'application réalise la SFD ([SFD.md](SFD.md)), V1 et phase 2, pour Odoo 18. Elle reprend les
+trois couches du schéma fonctionnel (2.1.3) : Connaissance, Configuration du projet client,
+Assistance et restitution, servies par l'administration et les intégrations. La correspondance
+exigence par exigence est dans [couverture.md](couverture.md).
 
 ## Modules
 
 ```mermaid
 flowchart LR
     subgraph Connaissance
-        F[sources.py, scripts/fetch_docs.py<br/>clone RST de odoo/documentation 18.0]
-        B[sources.py, scripts/build_index.py<br/>découpage RST par section]
-        K[knowledge.py<br/>BM25, filtre de version, citations]
-        Y[data/journeys/*.yaml<br/>référentiel de parcours]
-        J[journeys.py<br/>chargement et validation]
+        SY[sync.py, sources.py<br/>version candidate, contrôles, bascule]
+        TR[translation.py<br/>recomposition française .po]
+        K[knowledge.py<br/>sections étiquetées, BM25, citations]
+        SE[semantic.py<br/>index sémantique, recherche hybride]
+        RF[referential.py, data/referential.yaml<br/>Domaine, Module, Processus, Paramètre]
+        J[journeys.py, data/journeys/*.yaml<br/>modèles de parcours]
+        RP[repository.py<br/>éditeur E-09, validation]
     end
     subgraph Projet["Configuration du projet client"]
         M[models.py<br/>Profile, Step, Project]
-        E[engine.py<br/>plan ordonné, statuts]
-        S[storage.py<br/>projects/*.json]
+        E[engine.py<br/>plan ordonné, statuts, avancement]
+        AC[access.py<br/>rôles, RG-004, RG-015]
+        DB[db.py<br/>SQLite]
     end
     subgraph Restitution["Assistance et restitution"]
-        A[assistant.py<br/>extraits ou réponse Claude]
-        X[export.py<br/>cahier Excel]
+        A[assistant.py, conversation.py<br/>réponses sourcées, échanges]
+        X[export.py, word.py, imports.py<br/>livrables]
+        N[notify.py<br/>courriels]
+        G[odoo_client.py, gap.py<br/>contrôle d'écart, lecture seule]
     end
-    UI[app/streamlit_app.py]
+    UI[app/streamlit_app.py<br/>écrans E-01 à E-09]
 
-    F --> B --> K
-    Y --> J --> E
+    SY --> TR --> K --> SE
+    RF --> J --> E
+    RP --> J
     M --- E
-    E --> S
-    K --> A
+    AC --> DB
+    E --> DB
+    SE --> A
     E --> X
-    UI --> E & A & X & S
+    SY --> N
+    E --> G
+    UI --> AC & A & X & G & RP & SY
 ```
 
-## Flux principal
+## Flux
 
-1. `sync_docs.py` (ou `fetch_docs.py` seul) clone la branche 18.0 en mode superficiel et
-   partiel (pages RST seulement) et enregistre le commit. Si l'index manque, l'application lance
-   elle-même une première synchronisation au démarrage (`sources.ensure_index`, mis en cache
-   par `st.cache_resource`).
-2. `build_index.py` découpe les pages RST de finance, inventory_and_mrp et des pages citées par
-   les parcours en sections (une unité indexée par titre RST, avec son ancre), puis écrit
-   `index/odoo-18.0.json`.
-3. Le consultant saisit le profil ; `engine.generate_plan` filtre les parcours et étapes
-   applicables, puis les trie par prérequis.
-4. La fiche étape affiche l'objectif, le chemin de menu, la valeur recommandée selon le profil,
-   les prérequis et les sources ; les changements de statut passent par `engine.set_status`.
-5. L'assistant cherche dans l'index de la version du projet et répond avec citations.
-6. `export.py` produit le cahier de paramétrage.
+1. **Synchronisation** (`sync.py`) : clone partiel de la branche 18.0 (pages RST et traductions
+   françaises) en version candidate ; comparaison page par page avec la version active
+   (empreinte SHA-256 conservée dans l'index) ; recomposition française et étiquetage des sections
+   (application, pays, modules, menus) ; index BM25 et vecteurs sémantiques construits à part ;
+   contrôles ERR-001 à ERR-008 ; bascule atomique (`os.replace`) et archivage ; compte rendu et
+   notifications. Hebdomadaire (workflow `Doc sync`), manuelle (écran Sources) ou au premier
+   démarrage.
+2. **Projet** : le consultant crée le projet, affecte les membres, renseigne le profil avec le
+   client ; `engine.generate_plan` filtre les parcours et étapes applicables (profil, édition),
+   puis les trie par prérequis.
+3. **Exécution** : la fiche étape guide le paramétrage ; `access.change_status` applique les
+   règles de rôle (RG-004) puis du moteur (RG-003) ; les validations sont notifiées.
+4. **Assistance** : la question est posée dans le contexte de l'étape ouverte et de la version du
+   projet ; l'échange est conservé avec ses citations et le commit (RG-008).
+5. **Livrables** : cahier Excel et Word, checklist, modèles d'import, à l'identité de
+   l'organisation (RG-013).
+6. **Phase 2** : lecture seule de l'instance du client et contrôle de chaque étape.
 
 ## Choix techniques
 
-| Sujet | Choix V0 | Raison | Évolution prévue (SFD) |
-| --- | --- | --- | --- |
-| Référentiel | YAML validé par pydantic | lisible et revu comme du code, validé au chargement (RG-012) | éditeur de parcours (E-09), base de données |
-| Ordre des étapes | tri topologique stable (Kahn) | ordre du YAML conservé à contrainte égale, cycles détectés | inchangé |
-| Prérequis hors plan | ignoré pour RG-003, signalé sur la fiche | un prérequis non applicable au profil ne doit pas bloquer | inchangé |
-| Recherche | BM25 écrit dans `knowledge.py`, sans dépendance | aucune clé d'API, résultats explicables, testable hors ligne | recherche sémantique derrière l'interface `Retriever` |
-| Langue des extraits | pages RST anglaises, glossaire de termes FR vers EN pour la requête | la recomposition depuis les .po est hors V0 | recomposition française (F-003), libellés de menus traduits |
-| Seuil de couverture (RG-006) | score BM25 minimal et nombre de termes trouvés | refuser plutôt qu'inventer | seuil calibré sur un jeu de questions types |
-| Modèle de langage | optionnel, `claude-opus-5-5`, réponse rejetée si elle ne cite aucun extrait | les extraits restent la seule source | choix du service à arbitrer (Q-002) |
-| Éditions (Q-008) | modules requis par étape, comparés aux modules du dépôt public odoo/odoo 18.0 (`data/editions.json`) | vérifiable sans accès au code Enterprise ; les champs `upgrade_boolean` des réglages Community désignent des modules Enterprise | liste mise à jour à chaque synchronisation |
-| Synchronisation (F-002) | index candidat construit à part, contrôles, `os.replace` vers l'index actif ; empreinte SHA-256 par page RST dans l'index | une seule bascule, la version active n'est jamais modifiée en place (RG-009) ; détection des changements sans historique Git (clone superficiel) | base de données, notification par courriel |
-| Persistance | un fichier JSON par projet, écriture atomique | pas de serveur à installer | base de données applicative |
-| Interface | Streamlit | une seule commande pour lancer la démo | application web multi-utilisateur avec rôles |
+| Sujet | Choix | Raison |
+| --- | --- | --- |
+| Référentiel et parcours | YAML livré, validé par pydantic ; modifications du référent enregistrées en base comme fichiers entiers, revalidées avec tout le référentiel | relu comme du code, versionnable (export .zip), aucune modification invalide enregistrée (RG-012) |
+| Ordre des étapes | tri topologique stable (Kahn) | ordre du YAML conservé à contrainte égale, cycles détectés |
+| Base de données | SQLite (bibliothèque standard), un fichier | aucun serveur à installer ; chemin `OCA_DB` |
+| Authentification | comptes locaux, mots de passe PBKDF2 ; OIDC optionnel via `st.login` | la SFD rend le fournisseur d'identité optionnel (Q-009) |
+| Recomposition française | remplacement des blocs RST dont le texte est exactement le `msgid` | ne jamais attribuer une traduction au mauvais passage ; le reste en anglais avec mention |
+| Recherche | BM25 + analyse sémantique latente (SVD randomisée, numpy), fusion par rang | aucune clé d'API ; sections bilingues donc recherche translingue ; RG-006 reste lexical |
+| Éditions (Q-008) | modules requis par étape comparés au dépôt public odoo/odoo 18.0 | vérifiable sans accès au code Enterprise |
+| Synchronisation | index candidat à part, bascule par renommage atomique | la version active n'est jamais modifiée en place (RG-009) |
+| Modèles d'import | colonnes vérifiées contre les champs déclarés dans le code Community 18.0 | aucun en-tête inventé |
+| Messagerie | SMTP de l'organisation, mot de passe en variable d'environnement, journal | pas de secret en base ; trace même sans serveur |
+| Contrôle d'écart | API externe XML-RPC, liste fermée de méthodes de lecture | RG-016 garanti côté client, avant tout envoi |
+| Modèle de langage | optionnel, Claude, réponse rejetée si elle ne cite aucun extrait | les extraits restent la seule source (Q-002) |
+| Interface | Streamlit, un onglet par écran de la SFD, filtrés par rôle | une seule commande pour lancer, déployable sur Community Cloud |
 
 ## Vérification du contenu
 
 Les parcours sont vérifiés contre la documentation par `tests/test_journeys_data.py` : pour chaque
 étape, le fichier source existe, l'ancre citée est déclarée dans la page, le titre correspond à la
 page, le chemin de menu figure tel quel dans une source citée, et l'URL publique correspond au
-chemin RST. Le job CI `docs-truth` exécute ces tests sur un clone frais. Une valeur qui n'est pas
-confirmée par la documentation porte `verified: false` et une note ; elle apparaît avec la mention
-« À confirmer » dans l'interface et dans le cahier.
-
-## Correspondance avec la SFD
-
-| SFD | V0 |
-| --- | --- |
-| F-002 Sources et synchronisation | `sync.py`, `sync_docs.py`, onglet Sources (E-08), workflow Doc sync (sans recomposition française, F-003) |
-| F-013 Alertes de mise à jour | compte rendu de synchronisation, mention « À revalider » dans le plan et la fiche (sans courriel) |
-| F-005 Modèles de parcours | `data/journeys/*.yaml`, `journeys.py` |
-| F-007, F-008 Profil et plan | onglet Profil, `engine.py` |
-| F-009, F-011 Exécution et suivi | onglets Plan et Fiche étape |
-| F-010 Assistant | onglet Assistant, `assistant.py`, `knowledge.py` |
-| F-012 Livrables | onglet Export, `export.py` (cahier de paramétrage, checklist), `imports.py` (modèles d'import vérifiés contre `data/odoo_fields.json`) |
+chemin RST. Les modules requis et les colonnes des modèles d'import sont vérifiés contre le code
+Community (`data/editions.json`, `data/odoo_fields.json`). Le job CI `docs-truth` exécute ces
+tests sur un clone frais. Une valeur qui n'est pas confirmée par la documentation porte
+`verified: false` et une note ; elle apparaît avec la mention « À confirmer » dans l'interface et
+dans les livrables.

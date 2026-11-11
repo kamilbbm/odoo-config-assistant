@@ -14,9 +14,11 @@ L'application s'appuie sur la documentation officielle d'Odoo, dépôt
 - Version utilisée : commit enregistré dans [data/doc_version.json](data/doc_version.json)
   (commit de vérification des parcours) et, à l'exécution, dans `vendor/odoo-docs.version.json`.
 
-La documentation n'est pas copiée dans ce dépôt. Elle est téléchargée par
-`scripts/fetch_docs.py` dans `vendor/` (ignoré par git). L'index de recherche construit à partir
-de cette documentation (`index/`) n'est pas versionné non plus.
+La documentation n'est pas copiée dans ce dépôt. Les pages RST et les traductions françaises
+(`locale/fr/LC_MESSAGES/*.po`) sont téléchargées par `scripts/sync_docs.py` (ou
+`scripts/fetch_docs.py`) dans `vendor/` (ignoré par git). Les index construits à partir de cette
+documentation (`index/`, y compris les textes recomposés en français et les vecteurs sémantiques)
+ne sont pas versionnés non plus.
 
 Ce que le dépôt contient en lien avec cette documentation :
 
@@ -30,6 +32,14 @@ Chaque citation affichée par l'application (fiche étape, assistant, cahier de 
 le lien vers la page source et la mention de licence CC BY-SA 4.0 (règle RG-014 de la SFD).
 Un livrable qui reprend des extraits de la documentation est une œuvre dérivée soumise aux mêmes
 conditions de partage ; la question est ouverte dans la SFD (Q-001).
+
+## Code Odoo Community
+
+`scripts/fetch_editions.py` lit le dépôt [odoo/odoo](https://github.com/odoo/odoo), branche 18.0
+(licence LGPL-3.0), sans le copier : il en extrait la liste des noms de modules
+([data/editions.json](data/editions.json)) et les noms des champs des objets utilisés par les
+modèles d'import ([data/odoo_fields.json](data/odoo_fields.json)), avec le commit lu. Ces noms
+servent à vérifier les éditions et les en-têtes des modèles d'import.
 
 ## Marques
 
