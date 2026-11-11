@@ -1,7 +1,8 @@
 """Build the BM25 search index from the downloaded Odoo documentation.
 
 Indexed scope: finance and inventory_and_mrp, plus every page cited by the journeys.
-Output: index/odoo-18.0.json (ignored by git).
+Output: index/odoo-18.0.json and the semantic vectors index/odoo-18.0.vectors.npz (ignored by
+git). scripts/sync_docs.py does the same with controls and a report.
 
 Usage: python scripts/build_index.py [--docs vendor/odoo-docs] [--out index/odoo-18.0.json]
 """
@@ -15,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from odoo_config_assistant.knowledge import DEFAULT_INDEX_PATH
+from odoo_config_assistant.semantic import fit, vectors_path
 from odoo_config_assistant.sources import DEFAULT_DOCS_DIR, build_knowledge_index
 
 
@@ -28,6 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as exc:
         print(exc)
         return 1
+    fit(index.chunks, index.commit).save(vectors_path(args.out))
     pages = len({c.path for c in index.chunks})
     commit = index.commit[:7]
     print(f"Index {args.out} : {len(index.chunks)} sections, {pages} pages, commit {commit}")

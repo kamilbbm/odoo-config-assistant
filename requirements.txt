@@ -4,4 +4,5 @@ pydantic>=2.6
 PyYAML>=6.0
 openpyxl>=3.1
 streamlit>=1.52
+numpy>=1.26
 anthropic>=0.40

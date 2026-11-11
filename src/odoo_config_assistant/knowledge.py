@@ -485,8 +485,9 @@ def expand_query(query: str) -> list[str]:
 @dataclass(frozen=True)
 class Hit:
     chunk: Chunk
-    score: float
+    score: float  # BM25 : seul score retenu pour la couverture (RG-006)
     matched_terms: frozenset[str]
+    semantic: float = 0.0  # similarité cosinus dans l'index sémantique
 
 
 class Retriever(Protocol):
@@ -583,7 +584,7 @@ def is_covered(
     """
     if not hits:
         return False
-    best = hits[0]
+    best = max(hits, key=lambda h: h.score)  # le classement peut être hybride
     if best.score < min_score:
         return False
     words = []

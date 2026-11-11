@@ -13,8 +13,7 @@ Error codes (SFD 3.3.4):
 - ERR-001 repository unreachable: retried, then the active version stays in service;
 - ERR-002 branch (or commit) not found: stop, active version kept;
 - ERR-005 RST page that cannot be parsed: page left out, its previous sections kept;
-- ERR-006 indexing interrupted (no vector service in V0, the BM25 build stands for it):
-  candidate abandoned;
+- ERR-006 indexing or vectorization (semantic.py) interrupted: candidate abandoned;
 - ERR-007 source page or anchor of a step missing from the candidate: step flagged, not blocking;
 - ERR-008 abnormal drop of the number of pages: publication blocked unless forced, the decision
   being recorded with its author.
@@ -34,7 +33,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from odoo_config_assistant import DOC_VERSION, sources
+from odoo_config_assistant import DOC_VERSION, semantic, sources
 from odoo_config_assistant.journeys import load_catalog
 from odoo_config_assistant.knowledge import (
     DEFAULT_INDEX_PATH,
@@ -309,15 +308,31 @@ def _impacted(catalog: Catalog, modified: set[str], deleted: set[str]) -> list[I
     return impacted
 
 
-def _publish(candidate: KnowledgeIndex, active: KnowledgeIndex | None, index_path: Path) -> None:
-    """Archive the active version, then swap in the candidate with one atomic rename."""
+def _publish(
+    candidate: KnowledgeIndex,
+    vectors: semantic.SemanticModel,
+    active: KnowledgeIndex | None,
+    index_path: Path,
+) -> None:
+    """Archive the active version, then swap in the candidate with atomic renames.
+
+    The vectors are swapped first: until the index follows, they do not match it and the
+    search uses BM25 alone, so no request ever mixes two versions.
+    """
     index_path.parent.mkdir(parents=True, exist_ok=True)
+    vectors_file = semantic.vectors_path(index_path)
     if active is not None and index_path.exists():
         archive = sync_dir(index_path) / "archive"
         archive.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(index_path, archive / f"{index_path.stem}-{active.commit[:12]}.json")
+        stem = f"{index_path.stem}-{active.commit[:12]}"
+        shutil.copy2(index_path, archive / f"{stem}.json")
+        if vectors_file.exists():
+            shutil.copy2(vectors_file, archive / f"{stem}.vectors.npz")
+    tmp_vectors = index_path.with_suffix(".vectors.tmp")
+    vectors.save(tmp_vectors)
     tmp = index_path.with_suffix(".candidate.tmp")
     candidate.save(tmp)
+    os.replace(tmp_vectors, vectors_file)
     os.replace(tmp, index_path)
 
 
@@ -404,6 +419,13 @@ def synchronize(
             Anomaly(code="ERR-006", stage=4, message=f"indexation interrompue : {exc}")
         )
         return _save_report(report, index_path)
+    try:
+        vectors = semantic.fit(candidate.chunks, candidate.commit)
+    except Exception as exc:
+        report.anomalies.append(
+            Anomaly(code="ERR-006", stage=4, message=f"vectorisation indisponible : {exc}")
+        )
+        return _save_report(report, index_path)
     report.anomalies += [
         Anomaly(code="ERR-005", stage=4, message=f"page exclue : {message}", path=path)
         for path, message in errors
@@ -454,6 +476,6 @@ def synchronize(
         if not (forced_by or "").strip():
             raise ValueError("une publication forcée doit indiquer son auteur (ERR-008)")
         report.forced_by = forced_by.strip()
-    _publish(candidate, active, index_path)
+    _publish(candidate, vectors, active, index_path)
     report.status = SyncStatus.FORCED if dropped else SyncStatus.PUBLISHED
     return _save_report(report, index_path)

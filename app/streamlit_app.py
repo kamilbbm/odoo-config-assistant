@@ -53,6 +53,8 @@ from odoo_config_assistant.models import (  # noqa: E402
     Project,
     StepStatus,
 )
+from odoo_config_assistant.semantic import HybridRetriever  # noqa: E402
+from odoo_config_assistant.semantic import load_retriever as load_semantic_retriever  # noqa: E402
 from odoo_config_assistant.storage import list_projects, load_project, save_project  # noqa: E402
 from odoo_config_assistant.sync import (  # noqa: E402
     SyncSettings,
@@ -87,17 +89,20 @@ def get_import_templates():
 
 
 @st.cache_resource(show_spinner=False)
-def get_retriever() -> BM25Retriever:
-    """Index chargé une fois par processus. Au premier démarrage (Streamlit Community Cloud),
-    la documentation est téléchargée et l'index construit. Une exception n'est pas mise en
-    cache : un échec sera retenté au rechargement suivant."""
+def get_retriever():
+    """Index chargé une fois par processus : BM25 et index sémantique s'il correspond (hybride).
+    Au premier démarrage (Streamlit Community Cloud), une première synchronisation télécharge la
+    documentation et construit les index. Une exception n'est pas mise en cache : un échec sera
+    retenté au rechargement suivant."""
     if DEFAULT_INDEX_PATH.exists():
-        return BM25Retriever(KnowledgeIndex.load(DEFAULT_INDEX_PATH).chunks)
-    if os.environ.get("OCA_AUTO_FETCH", "1") == "0":
+        index = KnowledgeIndex.load(DEFAULT_INDEX_PATH)
+    elif os.environ.get("OCA_AUTO_FETCH", "1") == "0":
         raise FileNotFoundError("index absent, téléchargement automatique désactivé")
-    from odoo_config_assistant.sources import ensure_index
+    else:
+        from odoo_config_assistant.sources import ensure_index
 
-    return BM25Retriever(ensure_index().chunks)
+        index = ensure_index()
+    return load_semantic_retriever(index.chunks, DEFAULT_INDEX_PATH)
 
 
 @st.cache_resource(show_spinner=False)
@@ -175,6 +180,11 @@ with st.sidebar:
         st.warning(f"Index indisponible ({index_error}).")
     else:
         st.caption(f"Index : {len(retriever.chunks)} sections")
+        st.caption(
+            "Recherche hybride : BM25 et index sémantique"
+            if isinstance(retriever, HybridRetriever)
+            else "Recherche BM25 (index sémantique absent)"
+        )
     client = make_client()
     st.caption("Réponses rédigées par Claude" if client else "Sans clé d'API : extraits classés")
     st.caption(f"[{LICENSE_NOTICE}]({LICENSE_URL})")

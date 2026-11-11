@@ -292,3 +292,36 @@ def test_err003_unreadable_translation_file_keeps_pages_in_english(run, origin):
     assert any(a.code == "ERR-003" and "finance" in a.message for a in report.anomalies)
     chunks = [c for c in KnowledgeIndex.load(run.index).chunks if c.path == CITED]
     assert all(c.text_fr is None for c in chunks)
+
+
+def test_err006_vectorization_failure_abandons_the_candidate(run, origin, monkeypatch):
+    from odoo_config_assistant import semantic
+
+    first = run()
+    origin.write("content/applications/finance/new.rst", "New\n===\n\nA brand new page here.\n")
+    origin.commit()
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("service indisponible")
+
+    monkeypatch.setattr(semantic, "fit", broken)
+    report = run()
+    assert report.status is SyncStatus.FAILED
+    last = report.anomalies[-1]
+    assert last.code == "ERR-006" and "vectorisation" in last.message
+    assert KnowledgeIndex.load(run.index).commit == first.candidate_commit
+
+
+def test_publication_swaps_the_semantic_vectors_with_the_index(run, origin):
+    from odoo_config_assistant.semantic import SemanticModel, vectors_path
+
+    first = run()
+    model = SemanticModel.load(vectors_path(run.index))
+    assert model.commit == first.candidate_commit
+    assert model.matches(KnowledgeIndex.load(run.index).chunks)
+    origin.write(CITED, PAGE.format(body="Changed wording to trigger a new publication."))
+    origin.commit()
+    second = run()
+    assert SemanticModel.load(vectors_path(run.index)).commit == second.candidate_commit
+    archive = run.index.parent / "sync" / "archive"
+    assert (archive / f"odoo-18.0-{first.candidate_commit[:12]}.vectors.npz").exists()
