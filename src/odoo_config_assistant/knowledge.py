@@ -63,6 +63,11 @@ class Chunk(BaseModel):
     text_fr: str | None = None
     translation_rate: float | None = None
     translation_note: str | None = None  # RG-010, mention affichée avec l'extrait
+    # Étiquetage (F-003) : application, pays, modules techniques, libellés de menus.
+    application: str | None = None
+    country: str | None = None
+    modules: list[str] = Field(default_factory=list)
+    menus: list[str] = Field(default_factory=list)
 
     @property
     def display_page_title(self) -> str:
@@ -231,6 +236,7 @@ def chunk_file(
                 text_fr=fr_text,
                 translation_rate=rate,
                 translation_note=note,
+                **chunk_tags(rel, body),
             )
         )
     return chunks
@@ -449,7 +455,44 @@ GLOSSARY: dict[str, str] = {
 }
 
 # Country code -> page name under content/applications/finance/fiscal_localizations/
-LOCALIZATION_PAGES = {"CA": "canada", "FR": "france", "BE": "belgium", "US": "united_states"}
+# Pays (ISO 3166-1) des pages de localisation fiscale de la documentation 18.0.
+LOCALIZATION_PAGES = {
+    "AR": "argentina", "AU": "australia", "AT": "austria", "BE": "belgium", "BR": "brazil",
+    "CA": "canada", "CL": "chile", "CO": "colombia", "HR": "croatia", "DK": "denmark",
+    "EC": "ecuador", "EG": "egypt", "FR": "france", "DE": "germany", "GT": "guatemala",
+    "HK": "hong_kong", "HU": "hungary", "IN": "india", "ID": "indonesia", "IT": "italy",
+    "JO": "jordan", "KE": "kenya", "LU": "luxembourg", "MY": "malaysia", "MX": "mexico",
+    "NL": "netherlands", "NZ": "new_zealand", "OM": "oman", "PE": "peru", "PH": "philippines",
+    "PL": "poland", "RO": "romania", "SA": "saudi_arabia", "SG": "singapore", "ES": "spain",
+    "CH": "switzerland", "TW": "taiwan", "TH": "thailand", "AE": "united_arab_emirates",
+    "GB": "united_kingdom", "US": "united_states", "UY": "uruguay", "VN": "vietnam",
+}  # fmt: skip
+_COUNTRY_OF_PAGE = {page: code for code, page in LOCALIZATION_PAGES.items()}
+_MODULE_NAME = re.compile(
+    r"`((?:l10n|account|stock|mrp|sale|purchase|website|hr|point_of_sale|pos|base|product|"
+    r"quality|repair|maintenance|project|helpdesk|crm|mass_mailing|uom)(?:_[a-z0-9]+)*)`"
+)
+_MENU_TAG = re.compile(r":menuselection:`([^`]*)`")
+
+
+def chunk_tags(path: str, raw: str) -> dict:
+    """F-003 labels of an indexed unit: application, country, technical modules, menus."""
+    parts = path.removesuffix(".rst").split("/")
+    application = "/".join(parts[2:4]) if len(parts) > 2 and parts[1] == "applications" else None
+    country = None
+    if path.startswith(_LOCALIZATION_DIR):
+        page = path.removeprefix(_LOCALIZATION_DIR).split("/")[0].removesuffix(".rst")
+        country = _COUNTRY_OF_PAGE.get(page)
+    menus = [
+        " > ".join(i.strip() for i in re.sub(r"\s+", " ", m).split("-->"))
+        for m in _MENU_TAG.findall(raw)
+    ]
+    return {
+        "application": application,
+        "country": country,
+        "modules": sorted(set(_MODULE_NAME.findall(raw))),
+        "menus": list(dict.fromkeys(menus)),
+    }
 _LOCALIZATION_DIR = "content/applications/finance/fiscal_localizations/"
 
 
@@ -561,7 +604,7 @@ class BM25Retriever:
                 score *= 1.25
             if country and chunk.path.startswith(_LOCALIZATION_DIR):
                 page = chunk.path.removeprefix(_LOCALIZATION_DIR).split("/")[0].removesuffix(".rst")
-                if page != own_page:
+                if page != own_page and page in _COUNTRY_OF_PAGE:
                     score *= 0.5
             hits.append(Hit(chunk, score, frozenset(matched)))
         hits.sort(key=lambda h: h.score, reverse=True)

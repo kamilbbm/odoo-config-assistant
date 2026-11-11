@@ -142,6 +142,9 @@ class Organisation(BaseModel):
     mentions: str = ""
     logo_b64: str | None = None
     logo_mime: str | None = None
+    # Source documentaire déclarée (F-002) : dépôt ; la branche suit la version de l'ERP (18.0)
+    # et la langue des traductions est le français.
+    doc_repo: str = "https://github.com/odoo/documentation"
     # Paramètres (SFD 4.6) : seuils de synchronisation (Q-003, Q-004).
     drop_threshold: float = 0.05
     translation_threshold: float = 0.8

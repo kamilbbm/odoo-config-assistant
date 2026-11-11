@@ -194,3 +194,27 @@ def test_real_index_gives_a_french_menu_path_for_every_step():
     ]
     assert not missing
     assert labels["Accounting"] == "Comptabilité"
+
+
+def test_f003_indexed_units_are_labelled():
+    from odoo_config_assistant.knowledge import chunk_tags
+
+    raw = (
+        "Install `l10n_fr_account` then go to :menuselection:`Accounting -->\n"
+        "Configuration --> Settings`."
+    )
+    tags = chunk_tags("content/applications/finance/fiscal_localizations/france.rst", raw)
+    assert tags == {
+        "application": "finance/fiscal_localizations",
+        "country": "FR",
+        "modules": ["l10n_fr_account"],
+        "menus": ["Accounting > Configuration > Settings"],
+    }
+    other = chunk_tags("content/applications/inventory_and_mrp/inventory.rst", "No module.")
+    assert other["application"] == "inventory_and_mrp/inventory" and other["country"] is None
+
+
+def test_declared_source_defaults_to_the_official_repository():
+    from odoo_config_assistant.db import Organisation
+
+    assert Organisation(name="X").doc_repo == "https://github.com/odoo/documentation"

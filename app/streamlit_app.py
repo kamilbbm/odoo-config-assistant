@@ -224,6 +224,16 @@ def login_screen(db: Database, organisation: Organisation | None) -> None:
             else:
                 st.session_state["user_id"] = user.id
                 st.rerun()
+    if oidc_configured():
+        if getattr(st.user, "is_logged_in", False):
+            st.error(
+                f"Identité {getattr(st.user, 'email', '')} reconnue par le fournisseur, mais "
+                "aucun compte actif ne correspond : demander à l'administrateur de le créer."
+            )
+            if st.button("Changer d'identité"):
+                st.logout()
+        elif st.button("Se connecter avec le fournisseur d'identité de l'organisation"):
+            st.login()
     if organisation and organisation.demo:
         accounts, password = demo_accounts()
         st.divider()
@@ -237,10 +247,32 @@ def login_screen(db: Database, organisation: Organisation | None) -> None:
                     st.rerun()
 
 
+def oidc_configured() -> bool:
+    """Fournisseur d'identité de l'organisation (OIDC, optionnel en V1, Q-009) : section [auth]
+    des secrets Streamlit (redirect_uri, cookie_secret, client_id, client_secret,
+    server_metadata_url)."""
+    try:
+        return "auth" in st.secrets
+    except Exception:
+        return False
+
+
+def oidc_user(db: Database) -> User | None:
+    """Compte de l'application dont le courriel est celui de l'identité fournie."""
+    if not oidc_configured() or not getattr(st.user, "is_logged_in", False):
+        return None
+    email = getattr(st.user, "email", None)
+    found = db.user_by_email(email) if email else None
+    return found if found and found.active else None
+
+
 def current_user(db: Database) -> User | None:
     user_id = st.session_state.get("user_id")
     if user_id is None:
-        return None
+        found = oidc_user(db)
+        if found is not None:
+            st.session_state["user_id"] = found.id
+        return found
     try:
         user = db.user(int(user_id))
     except KeyError:
@@ -274,6 +306,8 @@ with st.sidebar:
     st.caption(f"{user.name} · {user.role.label}")
     if st.button("Se déconnecter"):
         st.session_state.clear()
+        if oidc_configured() and getattr(st.user, "is_logged_in", False):
+            st.logout()
         st.rerun()
     st.divider()
     names = {p.id: p.name for p in projects}
@@ -1121,7 +1155,12 @@ def run_sync(**kwargs) -> None:
     )
     with st.spinner("Synchronisation de la documentation Odoo 18.0"):
         try:
-            report = synchronize(settings=settings, catalog=catalog, **kwargs)
+            report = synchronize(
+                settings=settings,
+                catalog=catalog,
+                repo=org.doc_repo if org else None,
+                **kwargs,
+            )
         except ValueError as exc:
             flash("error", str(exc))
             return
@@ -1148,6 +1187,26 @@ if "Sources" in tabs:
             + (f", {len(retriever.chunks)} sections indexées" if retriever else "")
         )
         show_flash()
+        source_org = db.organisation()
+        st.markdown(
+            f"**Source déclarée** : dépôt `{source_org.doc_repo}`, branche `{DOC_VERSION}`, "
+            "pages RST en anglais et traductions françaises (.po), licence CC BY-SA 4.0."
+        )
+        if can_admin(user):
+            with st.form("source"):
+                repo_url = st.text_input(
+                    "Dépôt de la documentation (miroir possible)", value=source_org.doc_repo
+                )
+                if st.form_submit_button("Enregistrer la source"):
+                    if not repo_url.startswith(("https://", "file://")):
+                        st.error("Adresse de dépôt invalide (https://…).")
+                    else:
+                        db.save_organisation(source_org.model_copy(update={"doc_repo": repo_url}))
+                        flash(
+                            "success",
+                            "Source enregistrée ; elle sert à la prochaine synchronisation.",
+                        )
+                        st.rerun()
         if st.button("Synchroniser maintenant"):
             run_sync(trigger="manuelle")
 
