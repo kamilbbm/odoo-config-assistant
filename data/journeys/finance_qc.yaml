@@ -19,6 +19,7 @@ applies_when:
 steps:
 - id: fin_company
   title: Fiche de la société
+  parameter: company_identity
   objective: 'Renseigner l''identité légale de la société : nom, adresse au Québec, numéro fiscal et devise.
     Ces données alimentent les documents (factures) et le choix de la localisation.'
   menu_path: Settings > Users & Companies > Companies
@@ -37,6 +38,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/general/companies.html#general-companies-company
 - id: fin_localization
   title: Paquet de localisation canadien
+  parameter: fiscal_localization
   objective: 'Vérifier que le paquet de localisation fiscale Canada est installé : il fournit le plan
     comptable, les taxes, les positions fiscales et les rapports canadiens.'
   menu_path: Accounting > Configuration > Settings
@@ -59,6 +61,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/canada.html#localizations-canada-modules
 - id: fin_main_currency
   title: Devise principale
+  parameter: main_currency
   objective: Confirmer la devise de tenue de la comptabilité. Elle est définie par défaut selon le pays
     de la société.
   menu_path: Accounting > Configuration > Settings > Currencies
@@ -76,6 +79,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started/multi_currency.html#multi-currency-config-main-currency
 - id: fin_foreign_currencies
   title: Devises étrangères
+  parameter: foreign_currencies
   objective: Activer les devises dans lesquelles la société facture ou achète, en plus de la devise principale.
   menu_path: Accounting > Configuration > Currencies
   recommendations:
@@ -91,6 +95,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started/multi_currency.html#multi-currency-config-enable
 - id: fin_fiscal_year
   title: Exercice fiscal
+  parameter: fiscal_year
   objective: Définir les dates d'ouverture et de clôture de l'exercice, utilisées pour générer les rapports.
   menu_path: Accounting > Configuration > Settings > Fiscal Periods
   recommendations:
@@ -112,6 +117,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/reporting/year_end.html#year-end-fiscal-years
 - id: fin_chart_of_accounts
   title: Plan comptable canadien
+  parameter: chart_of_accounts
   objective: Revoir le plan comptable installé par la localisation et l'adapter à la société sans casser
     les comptes utilisés par Odoo.
   menu_path: Accounting > Configuration > Chart of Accounts
@@ -131,6 +137,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started/chart_of_accounts.html
 - id: fin_taxes
   title: Taxes TPS et TVQ
+  parameter: taxes
   objective: Vérifier et activer les taxes de vente et d'achat créées par la localisation. Seul le taux
     principal est actif par défaut ; les autres s'activent depuis la liste des taxes.
   menu_path: Accounting > Configuration > Taxes
@@ -153,6 +160,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/taxes.html#taxes-list-activation
 - id: fin_fiscal_positions
   title: Positions fiscales par province
+  parameter: fiscal_positions
   objective: Faire correspondre les taxes selon la province du client ou du fournisseur. Au Canada, c'est
     la province de livraison qui détermine les taxes.
   menu_path: Accounting > Configuration > Fiscal Positions
@@ -173,6 +181,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/taxes/fiscal_positions.html
 - id: fin_default_taxes
   title: Taxes par défaut
+  parameter: taxes
   objective: Définir les taxes de vente et d'achat posées automatiquement sur les nouveaux articles.
   menu_path: Accounting > Configuration > Settings
   recommendations:
@@ -190,6 +199,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/taxes.html#taxes-default
 - id: fin_tax_periodicity
   title: Périodicité des déclarations de taxes
+  parameter: tax_returns
   objective: Paramétrer la fréquence des déclarations, le rappel et le journal de comptabilisation, pour
     qu'Odoo calcule la déclaration sur la bonne période.
   menu_path: Accounting > Configuration > Settings
@@ -210,6 +220,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/reporting/tax_returns.html#tax-returns-periodicity
 - id: fin_journals
   title: Journaux
+  parameter: journals
   objective: 'Vérifier les journaux comptables qui classent les écritures : banque, caisse, carte de crédit,
     ventes, achats et opérations diverses.'
   menu_path: Accounting > Configuration > Journals
@@ -224,6 +235,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started/journals.html
 - id: fin_bank_account
   title: Comptes bancaires
+  parameter: bank_accounts
   objective: Relier chaque compte bancaire de la société à un journal de banque, avec synchronisation
     automatique des relevés si l'établissement est proposé.
   menu_path: Accounting > Configuration > Add a Bank Account
@@ -240,6 +252,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started.html#accounting-setup-bank
 - id: fin_opening_balances
   title: Soldes d'ouverture
+  parameter: opening_balances
   objective: Reprendre les soldes de départ à la date de bascule, pour que la balance d'Odoo corresponde
     à la comptabilité précédente.
   menu_path: Accounting > Configuration > Chart of Accounts
@@ -263,6 +276,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started/chart_of_accounts.html
 - id: fin_payment_terms
   title: Conditions de paiement
+  parameter: payment_terms
   objective: Définir les conditions de paiement (échéances, escomptes) utilisées sur les commandes, factures
     et factures fournisseurs.
   menu_path: Accounting > Configuration > Payment Terms
@@ -285,6 +299,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/canada.html#localizations-canada-cash-discount
 - id: fin_check_printing
   title: Impression des chèques
+  parameter: check_printing
   objective: Permettre l'impression des paiements fournisseurs sur papier chèque pré-imprimé, avec le
     module Canadian Checks Layout (l10n_ca_check_printing).
   menu_path: Accounting > Configuration > Settings
@@ -304,6 +319,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/canada.html#localizations-canada-writing-checks
 - id: fin_lock_dates
   title: Dates de verrouillage
+  parameter: lock_dates
   objective: Empêcher la modification des écritures d'une période close.
   menu_path: Accounting > Accounting > Lock Dates
   recommendations:
@@ -319,6 +335,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/reporting/year_end.html#year-end-lock-everything-date
 - id: fin_reports
   title: Rapports financiers canadiens
+  parameter: financial_reports
   objective: Contrôler que le bilan et l'état des résultats canadiens sont disponibles et cohérents avec
     le plan comptable.
   menu_path: Accounting app > Reporting
@@ -337,6 +354,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/canada.html#localizations-canada-reports
 - id: fin_tax_report
   title: Grilles du rapport de taxes
+  parameter: tax_returns
   objective: Vérifier que les taxes utilisées alimentent les bonnes grilles du rapport de taxes avant
     la première déclaration.
   menu_path: Accounting > Reporting > Tax Return

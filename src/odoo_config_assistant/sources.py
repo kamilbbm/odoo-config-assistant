@@ -23,6 +23,7 @@ from odoo_config_assistant.knowledge import (
     KnowledgeIndex,
     build_index,
 )
+from odoo_config_assistant.models import Catalog
 from odoo_config_assistant.translation import LOCALE_DIR, Translations, load_translations
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -114,6 +115,7 @@ def build_knowledge_index(
     errors: list[tuple[str, str]] | None = None,
     translations: Translations | None = None,
     threshold: float = DEFAULT_TRANSLATION_THRESHOLD,
+    catalog: Catalog | None = None,
 ) -> KnowledgeIndex:
     """Index finance, inventory_and_mrp and every page cited by the journeys.
 
@@ -124,7 +126,7 @@ def build_knowledge_index(
     if not path.exists():
         raise FileNotFoundError("Documentation absente : lancer d'abord scripts/fetch_docs.py")
     info = json.loads(path.read_text(encoding="utf-8"))
-    catalog = load_catalog()
+    catalog = catalog or load_catalog()
     cited = sorted({s.path for j in catalog.journeys for step in j.steps for s in step.sources})
     if translations is None and (docs / LOCALE_DIR).is_dir():
         translations = load_translations(docs)

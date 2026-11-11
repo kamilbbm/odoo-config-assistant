@@ -63,7 +63,7 @@ def test_demo_button_logs_in(db_path):
         (
             "admin@organisation.example",
             ["Tableau de bord", "Projet", "Plan", "Fiche étape", "Assistant", "Livrables",
-             "Administration", "Sources"],
+             "Administration", "Sources", "Référentiel"],
         ),
         (
             "consultant@organisation.example",
@@ -73,7 +73,7 @@ def test_demo_button_logs_in(db_path):
             "client.vauban@organisation.example",
             ["Tableau de bord", "Projet", "Plan", "Fiche étape", "Assistant"],
         ),
-        ("referent@organisation.example", ["Assistant", "Sources"]),
+        ("referent@organisation.example", ["Assistant", "Sources", "Référentiel"]),
     ],
 )
 def test_screens_depend_on_the_role(db_path, email, screens):
@@ -103,3 +103,15 @@ def test_rg004_client_validates_a_done_step_from_the_step_sheet(db_path):
     next(b for b in app.button if b.label == "Enregistrer l'étape").click().run()
     assert not app.exception
     assert database.project("exemple-fr").plan_step(step).status is StepStatus.VALIDATED
+
+
+def test_referent_edits_a_step_title_in_the_journey_editor(db_path):
+    app, database = run_as("referent@organisation.example", db_path)
+    app.selectbox(key="editor-step-finance_fr").set_value("frf_journals").run()
+    title = next(t for t in app.text_input if t.label == "Titre")
+    title.input("Journaux comptables (E-09)")
+    next(b for b in app.button if b.label == "Enregistrer l'étape").click().run()
+    assert not app.exception
+    from odoo_config_assistant.repository import catalog_for
+
+    assert catalog_for(database).step("frf_journals").title == "Journaux comptables (E-09)"

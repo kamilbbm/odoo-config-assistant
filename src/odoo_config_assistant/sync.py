@@ -413,6 +413,7 @@ def synchronize(
             errors=errors,
             translations=translations,
             threshold=settings.translation_threshold,
+            catalog=catalog,
         )
     except Exception as exc:
         report.anomalies.append(

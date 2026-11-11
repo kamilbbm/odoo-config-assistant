@@ -20,13 +20,18 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from odoo_config_assistant import DOC_VERSION, ERP  # noqa: E402
+from odoo_config_assistant import (  # noqa: E402
+    DOC_VERSION,
+    ERP,
+    repository,
+)
 from odoo_config_assistant.access import (  # noqa: E402
     AccessDenied,
     allowed_statuses,
     can_admin,
     can_create_project,
     can_edit_profile,
+    can_edit_repository,
     can_manage_project,
     can_manage_sources,
     change_status,
@@ -49,7 +54,7 @@ from odoo_config_assistant.imports import (  # noqa: E402
     export_templates_zip,
     load_import_templates,
 )
-from odoo_config_assistant.journeys import load_catalog  # noqa: E402
+from odoo_config_assistant.journeys import JourneyValidationError  # noqa: E402
 from odoo_config_assistant.knowledge import (  # noqa: E402
     DEFAULT_INDEX_PATH,
     BM25Retriever,
@@ -70,6 +75,7 @@ from odoo_config_assistant.models import (  # noqa: E402
     Project,
     StepStatus,
 )
+from odoo_config_assistant.repository import catalog_for  # noqa: E402
 from odoo_config_assistant.seed import demo_accounts, ensure_ready, setup_organisation  # noqa: E402
 from odoo_config_assistant.semantic import HybridRetriever  # noqa: E402
 from odoo_config_assistant.semantic import load_retriever as load_semantic_retriever  # noqa: E402
@@ -106,8 +112,10 @@ def get_db(path: str | None) -> Database:
 
 
 @st.cache_resource
-def get_catalog():
-    return load_catalog()
+def get_catalog(path: str | None, version: str):
+    """Catalogue livré + modifications du référent (E-09) ; ``version`` change à chaque
+    modification enregistrée, ce qui recharge le catalogue."""
+    return catalog_for(get_db(path))
 
 
 @st.cache_resource
@@ -244,7 +252,7 @@ if user is None:
     login_screen(db, organisation)
     st.stop()
 
-catalog = get_catalog()
+catalog = get_catalog(os.environ.get("OCA_DB"), db.repository_version())
 retriever, index_error = load_retriever()
 doc_commit = current_doc_commit()
 client = make_client()
@@ -304,6 +312,9 @@ if project_id is not None:
 
 last_report = last_published_report()
 doc_alerts = last_report.step_alerts() if last_report else {}
+if last_report:  # RG-011 : une étape revalidée par le référent n'est plus signalée
+    reviewed = db.reviewed_steps(last_report.id)
+    doc_alerts = {k: v for k, v in doc_alerts.items() if k not in reviewed}
 
 is_project_user = user.role in (Role.ADMIN, Role.CONSULTANT, Role.CLIENT)
 screens: list[str] = []
@@ -316,7 +327,13 @@ if can_admin(user):
     screens.append("Administration")
 if can_manage_sources(user):
     screens.append("Sources")
+if can_edit_repository(user):
+    screens.append("Référentiel")
 tabs = dict(zip(screens, st.tabs(screens), strict=True))
+
+
+def catalog_step_ids(current) -> set[str]:
+    return {s.id for j in current.journeys for s in j.steps}
 
 
 def save(updated: Project) -> Project:
@@ -587,10 +604,13 @@ if "Plan" in tabs:
                 journey = catalog.journey_of(item.step_id)
                 info = prerequisite_info(project, item.step_id, catalog)
                 rec = step.recommendation_for(project.profile)
+                location = catalog.location(step)
                 rows.append(
                     {
                         "N°": item.order + 1,
                         "Domaine": journey.domain,
+                        "Module": location.module.label if location else "",
+                        "Processus": location.process.label if location else "",
                         "Parcours": journey.title,
                         "Étape": step.title,
                         "Statut": item.status.label,
@@ -634,6 +654,9 @@ if "Fiche étape" in tabs:
             rec = step.recommendation_for(project.profile)
 
             st.subheader(step.title)
+            location = catalog.location(step)
+            if location:
+                st.caption(location.label)
             for alert in doc_alerts.get(selected, []):
                 st.warning(alert)
             st.write(step.objective)
@@ -965,7 +988,7 @@ def run_sync(**kwargs) -> None:
     )
     with st.spinner("Synchronisation de la documentation Odoo 18.0"):
         try:
-            report = synchronize(settings=settings, **kwargs)
+            report = synchronize(settings=settings, catalog=catalog, **kwargs)
         except ValueError as exc:
             flash("error", str(exc))
             return
@@ -1037,3 +1060,214 @@ if "Sources" in tabs:
             "sync »). Sur Streamlit Community Cloud, le disque n'est pas persistant : "
             "l'historique repart à zéro au redémarrage de l'instance."
         )
+
+
+# --------------------------------------------------------------------------- E-09 repository
+
+
+def _yaml(value) -> str:
+    import yaml
+
+    return "" if value in (None, [], {}) else yaml.safe_dump(value, allow_unicode=True, width=100)
+
+
+def _from_yaml(text: str, label: str):
+    import yaml
+
+    try:
+        return yaml.safe_load(text) if text.strip() else None
+    except yaml.YAMLError as exc:
+        raise JourneyValidationError([f"{label} : YAML invalide ({exc})"]) from exc
+
+
+if "Référentiel" in tabs:
+    with tabs["Référentiel"]:
+        st.header("Référentiel et parcours")
+        show_flash()
+
+        st.subheader("Étapes impactées par une mise à jour documentaire")
+        if not last_report or not doc_alerts:
+            st.info("Aucune étape à revalider depuis la dernière synchronisation publiée.")
+        else:
+            st.caption(
+                f"Synchronisation du {last_report.started_at:%Y-%m-%d %H:%M} UTC, commit "
+                f"`{(last_report.candidate_commit or '')[:12]}`. Vérifier l'étape contre la page "
+                "modifiée, la corriger au besoin dans l'éditeur, puis la marquer revalidée."
+            )
+            for step_id, alerts in sorted(doc_alerts.items()):
+                with st.container(border=True):
+                    title = (
+                        catalog.step(step_id).title
+                        if step_id in catalog_step_ids(catalog)
+                        else step_id
+                    )
+                    st.markdown(f"**{title}** (`{step_id}`)")
+                    for alert in alerts:
+                        st.write(alert)
+                    if st.button("Marquer revalidée", key=f"review-{step_id}"):
+                        db.review_step(step_id, last_report.id, user.id)
+                        flash("success", f"Étape {step_id} revalidée.")
+                        st.rerun()
+
+        st.subheader("Arborescence métier (F-004)")
+        if catalog.referential is not None:
+            counts: dict[str, int] = {}
+            for journey in catalog.journeys:
+                for step in journey.steps:
+                    if step.parameter:
+                        counts[step.parameter] = counts.get(step.parameter, 0) + 1
+            for domain in catalog.referential.domains:
+                with st.expander(f"{domain.label} ({len(domain.modules)} modules)"):
+                    for module in domain.modules:
+                        st.markdown(
+                            f"**{module.label}** · modules Odoo : "
+                            + ", ".join(f"`{m}`" for m in module.odoo_modules)
+                        )
+                        if not module.processes:
+                            st.caption("Aucun processus modélisé pour l'instant.")
+                        for process in module.processes:
+                            st.markdown(f"- {process.label}")
+                            for parameter in process.parameters:
+                                st.markdown(
+                                    f"    - {parameter.label} (`{parameter.id}`) : "
+                                    f"{counts.get(parameter.id, 0)} étape(s), "
+                                    f"{len(parameter.sources)} page(s) source"
+                                )
+        files = repository.current_files(db)
+        with st.form("referential"):
+            text = st.text_area(
+                "Référentiel (YAML)", value=files.get("referential.yaml", ""), height=300
+            )
+            if st.form_submit_button("Enregistrer le référentiel"):
+                try:
+                    repository.save_referential(db, user, text)
+                except (JourneyValidationError, ValueError) as exc:
+                    st.error(f"Référentiel refusé : {exc}")
+                else:
+                    flash("success", "Référentiel enregistré.")
+                    st.rerun()
+
+        st.subheader("Éditeur de parcours (F-005)")
+        journey = st.selectbox(
+            "Parcours", catalog.journeys, format_func=lambda j: f"{j.title} ({j.id})"
+        )
+        options = [None] + [s.id for s in journey.steps]
+        chosen = st.selectbox(
+            "Étape",
+            options,
+            format_func=lambda i: "+ Nouvelle étape" if i is None else catalog.step(i).title,
+            key=f"editor-step-{journey.id}",
+        )
+        current = repository.step_as_dict(db, journey.id, chosen) if chosen else {}
+        parameters = list(catalog.referential.paths()) if catalog.referential else []
+        with st.form(f"editor-{journey.id}-{chosen}"):
+            step_id = st.text_input(
+                "Identifiant", value=current.get("id", ""), disabled=chosen is not None
+            )
+            title = st.text_input("Titre", value=current.get("title", ""))
+            parameter = st.selectbox(
+                "Paramètre du référentiel",
+                [None, *parameters],
+                index=(
+                    [None, *parameters].index(current.get("parameter"))
+                    if current.get("parameter") in parameters
+                    else 0
+                ),
+                format_func=lambda i: "Aucun" if i is None else catalog.referential.path(i).label,
+            )
+            objective = st.text_area("Objectif", value=current.get("objective", ""))
+            menu_path = st.text_input(
+                "Chemin de menu (anglais, tel qu'écrit dans la doc)",
+                value=current.get("menu_path", ""),
+            )
+            others = [s.id for j in catalog.journeys for s in j.steps if s.id != chosen]
+            prerequisites = st.multiselect(
+                "Prérequis", others, default=current.get("prerequisites", [])
+            )
+            recommendations = st.text_area(
+                "Recommandations (YAML : value, when, verified, note)",
+                value=_yaml(current.get("recommendations")),
+                height=160,
+            )
+            applies_when = st.text_area(
+                "Conditions d'application selon le profil (YAML)",
+                value=_yaml(current.get("applies_when")),
+            )
+            modules = st.text_input(
+                "Modules techniques requis (séparés par des virgules)",
+                value=", ".join(current.get("modules", [])),
+            )
+            sources = st.text_area(
+                "Sources (YAML : path, title, anchor, url) — au moins une (RG-012)",
+                value=_yaml(current.get("sources")),
+                height=160,
+            )
+            col1, col2 = st.columns(2)
+            save_clicked = col1.form_submit_button("Enregistrer l'étape")
+            delete_clicked = col2.form_submit_button("Supprimer l'étape", disabled=chosen is None)
+        if save_clicked:
+            try:
+                payload = {
+                    "id": step_id.strip(),
+                    "title": title.strip(),
+                    "parameter": parameter,
+                    "objective": objective.strip(),
+                    "menu_path": menu_path.strip(),
+                    "recommendations": _from_yaml(recommendations, "recommandations") or [],
+                    "prerequisites": prerequisites,
+                    "applies_when": _from_yaml(applies_when, "conditions"),
+                    "modules": [m.strip() for m in modules.split(",") if m.strip()],
+                    "sources": _from_yaml(sources, "sources") or [],
+                }
+                repository.save_step(db, user, journey.id, payload, chosen)
+            except (JourneyValidationError, ValueError) as exc:
+                st.error(f"Étape refusée : {exc}")
+            else:
+                flash("success", f"Étape {step_id} enregistrée.")
+                st.rerun()
+        if delete_clicked and chosen:
+            try:
+                repository.delete_step(db, user, journey.id, chosen)
+            except (JourneyValidationError, ValueError) as exc:
+                st.error(f"Suppression refusée : {exc}")
+            else:
+                flash("success", f"Étape {chosen} supprimée.")
+                st.rerun()
+
+        overrides = db.repository_overrides()
+        if overrides:
+            st.subheader("Fichiers modifiés")
+            for name in sorted(overrides):
+                col1, col2 = st.columns([3, 1])
+                col1.write(f"`{name}`")
+                if col2.button("Rétablir la version livrée", key=f"reset-{name}"):
+                    try:
+                        repository.reset_file(db, user, name)
+                    except (JourneyValidationError, ValueError) as exc:
+                        st.error(str(exc))
+                    else:
+                        flash("success", f"{name} rétabli.")
+                        st.rerun()
+        st.download_button(
+            "Télécharger le référentiel et les parcours (.zip)",
+            data=repository.export_zip(db),
+            file_name="referentiel_parcours.zip",
+            mime="application/zip",
+        )
+        history = db.repository_history()
+        if history:
+            st.subheader("Historique des modifications")
+            st.dataframe(
+                [
+                    {
+                        "Date (UTC)": h["created_at"].replace("T", " ")[:16],
+                        "Fichier": h["name"],
+                        "Action": h["action"],
+                        "Détail": h["detail"],
+                        "Par": h["user_name"] or "",
+                    }
+                    for h in history
+                ],
+                hide_index=True,
+                width="stretch",
+            )

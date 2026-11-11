@@ -69,6 +69,27 @@ CREATE TABLE IF NOT EXISTS deliverables (
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS repository_files (
+    name TEXT PRIMARY KEY,
+    content TEXT,
+    updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS repository_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    action TEXT NOT NULL,
+    detail TEXT NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS step_reviews (
+    step_id TEXT NOT NULL,
+    report_id TEXT NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (step_id, report_id)
+);
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     kind TEXT NOT NULL,
@@ -462,3 +483,70 @@ class Database:
                 "SELECT * FROM notifications ORDER BY id DESC LIMIT ?", (limit,)
             ).fetchall()
         return [dict(r) for r in rows]
+
+    # ----------------------------------------------------------------------- repository (E-09)
+
+    def repository_overrides(self) -> dict[str, str | None]:
+        with self.connect() as con:
+            rows = con.execute("SELECT name, content FROM repository_files").fetchall()
+        return {r["name"]: r["content"] for r in rows}
+
+    def repository_version(self) -> str:
+        """Changes whenever the edited repository changes (cache key of the catalog)."""
+        with self.connect() as con:
+            row = con.execute(
+                "SELECT COUNT(*) AS n, MAX(updated_at) AS at FROM repository_files"
+            ).fetchone()
+            last = con.execute("SELECT MAX(id) AS id FROM repository_history").fetchone()
+        return f"{row['n']}-{row['at']}-{last['id']}"
+
+    def save_repository_file(
+        self, name: str, content: str | None, user_id: int | None, action: str, detail: str
+    ) -> None:
+        with self.connect() as con:
+            con.execute(
+                "INSERT INTO repository_files (name, content, updated_by, updated_at) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT(name) DO UPDATE SET content = excluded.content, "
+                "updated_by = excluded.updated_by, updated_at = excluded.updated_at",
+                (name, content, user_id, _now()),
+            )
+            con.execute(
+                "INSERT INTO repository_history (name, action, detail, user_id, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (name, action, detail, user_id, _now()),
+            )
+
+    def reset_repository_file(self, name: str, user_id: int | None) -> None:
+        with self.connect() as con:
+            con.execute("DELETE FROM repository_files WHERE name = ?", (name,))
+            con.execute(
+                "INSERT INTO repository_history (name, action, detail, user_id, created_at) "
+                "VALUES (?, 'rétablissement', 'version livrée rétablie', ?, ?)",
+                (name, user_id, _now()),
+            )
+
+    def repository_history(self, limit: int = 50) -> list[dict]:
+        with self.connect() as con:
+            rows = con.execute(
+                "SELECT h.name, h.action, h.detail, h.created_at, u.name AS user_name "
+                "FROM repository_history h LEFT JOIN users u ON u.id = h.user_id "
+                "ORDER BY h.id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def review_step(self, step_id: str, report_id: str, user_id: int | None) -> None:
+        """The content owner has revalidated a step after a documentation change (RG-011)."""
+        with self.connect() as con:
+            con.execute(
+                "INSERT OR IGNORE INTO step_reviews (step_id, report_id, user_id, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (step_id, report_id, user_id, _now()),
+            )
+
+    def reviewed_steps(self, report_id: str) -> set[str]:
+        with self.connect() as con:
+            rows = con.execute(
+                "SELECT step_id FROM step_reviews WHERE report_id = ?", (report_id,)
+            ).fetchall()
+        return {r["step_id"] for r in rows}

@@ -32,6 +32,7 @@ TABS = [
     "Livrables",
     "Administration",
     "Sources",
+    "Référentiel",
 ]
 BAD_LOG = re.compile(r"Traceback|Exception|Error|Warning|deprecat|Please replace", re.IGNORECASE)
 

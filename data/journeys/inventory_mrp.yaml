@@ -16,6 +16,7 @@ applies_when:
 steps:
 - id: inv_storage_locations
   title: Emplacements de stockage
+  parameter: locations
   objective: Activer la gestion de plusieurs emplacements dans un entrepôt.
   menu_path: Inventory app > Configuration > Settings
   recommendations:
@@ -28,6 +29,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/use_locations.html#use-locations-configuration
 - id: inv_multi_step_routes
   title: Routes multi-étapes
+  parameter: routes
   objective: Activer les routes pour gérer les flux de réception, de livraison et de fabrication en plusieurs
     étapes.
   menu_path: Inventory app > Configuration > Settings
@@ -42,6 +44,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/shipping_receiving/daily_operations/use_routes.html#inventory-routes-config
 - id: inv_warehouse
   title: Entrepôt
+  parameter: warehouse
   objective: 'Paramétrer l''entrepôt principal : nom, code court et adresse.'
   menu_path: Inventory app > Configuration > Warehouses
   recommendations:
@@ -54,6 +57,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/warehouses.html
 - id: inv_locations
   title: Emplacements internes
+  parameter: locations
   objective: Créer les emplacements physiques de l'entrepôt (zones, allées, étagères) pour savoir où se
     trouve le stock.
   menu_path: Inventory app > Configuration > Locations
@@ -73,6 +77,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/use_locations.html#inventory-use-locations-create-location
 - id: inv_receipt_steps
   title: Réceptions
+  parameter: receipts
   objective: Choisir le nombre d'étapes de réception des marchandises dans l'entrepôt (champ Incoming
     Shipments).
   menu_path: Inventory app > Configuration > Warehouses
@@ -104,6 +109,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/shipping_receiving/daily_operations/receipts_three_steps.html
 - id: inv_delivery_steps
   title: Livraisons
+  parameter: deliveries
   objective: Choisir le nombre d'étapes de livraison des produits finis (champ Outgoing Shipments).
   menu_path: Inventory app > Configuration > Warehouses
   recommendations:
@@ -131,6 +137,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/shipping_receiving/daily_operations/delivery_three_steps.html
 - id: inv_uom
   title: Unités de mesure
+  parameter: units_of_measure
   objective: Activer les unités de mesure pour acheter, stocker et consommer les articles dans des unités
     différentes.
   menu_path: Inventory app > Configuration > Settings
@@ -145,6 +152,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/product_management/configure/uom.html#inventory-uom-categories
 - id: inv_product_categories
   title: Catégories d'articles et valorisation
+  parameter: product_categories
   objective: Créer les catégories d'articles (matières premières, composants, produits finis) et fixer
     leur méthode de coût et leur valorisation du stock.
   menu_path: Inventory app > Configuration > Product Categories
@@ -171,6 +179,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/product_management/inventory_valuation/inventory_valuation_config.html#inventory-warehouses-storage-valuation-on-product-category
 - id: inv_components
   title: Composants et matières premières achetés
+  parameter: purchased_components
   objective: 'Paramétrer les articles achetés : fournisseur, prix et délai de livraison, route d''achat.'
   menu_path: Purchase app > Products > Products
   recommendations:
@@ -193,6 +202,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/warehouses_storage/replenishment/lead_times.html#inventory-warehouses-storage-purchase-lt
 - id: inv_lots
   title: Lots et numéros de série
+  parameter: traceability
   objective: Activer la traçabilité par lots pour suivre les matières et les produits finis.
   menu_path: Inventory app > Configuration > Settings
   recommendations:
@@ -209,6 +219,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/product_management/product_tracking/lots.html#inventory-management-track-products-by-lots
 - id: mrp_work_orders
   title: Ordres de travail
+  parameter: work_orders
   objective: Activer les ordres de travail, nécessaires pour les postes de travail et les opérations des
     nomenclatures.
   menu_path: Manufacturing app > Configuration > Settings
@@ -228,6 +239,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/manufacturing/basic_setup/bill_configuration.html#manufacturing-basic-setup-setup-operations
 - id: mrp_work_centers
   title: Postes de travail
+  parameter: work_centers
   objective: Créer les postes de travail où se déroulent les opérations de fabrication.
   menu_path: Manufacturing app > Configuration > Work Centers
   recommendations:
@@ -244,6 +256,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/manufacturing/advanced_configuration/using_work_centers.html#manufacturing-management-using-work-centers-wc-setup
 - id: mrp_manufacturing_steps
   title: Étapes de fabrication
+  parameter: manufacturing_steps
   objective: Choisir le nombre d'étapes de fabrication de l'entrepôt (champ Manufacture).
   menu_path: Inventory > Configuration > Warehouses
   recommendations:
@@ -273,6 +286,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/manufacturing/basic_setup/two_step_manufacturing.html
 - id: mrp_product
   title: Produits fabriqués
+  parameter: manufactured_products
   objective: Déclarer les produits finis et semi-finis comme fabricables.
   menu_path: Manufacturing > Products > Products
   recommendations:
@@ -293,6 +307,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/manufacturing/basic_setup/configure_manufacturing_product.html#manufacturing-management-configure-manufacturing-product
 - id: mrp_bom
   title: Nomenclatures
+  parameter: bills_of_materials
   objective: Décrire pour chaque produit fabriqué ses composants et ses opérations.
   menu_path: Manufacturing app > Products > Bills of Materials
   recommendations:
@@ -312,6 +327,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/manufacturing/basic_setup/bill_configuration.html#manufacturing-basic-setup-bom-setup
 - id: inv_reordering_rules
   title: Règles de réapprovisionnement
+  parameter: reordering_rules
   objective: Déclencher automatiquement achats et fabrications quand le stock prévu passe sous un minimum.
   menu_path: Inventory app > Operations > Replenishment
   recommendations:
@@ -327,6 +343,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/warehouses_storage/replenishment/reordering_rules.html#inventory-warehouses-storage-configure-rr
 - id: mrp_mto
   title: Fabrication à la commande
+  parameter: make_to_order
   objective: Lancer un ordre de fabrication à chaque commande client pour les produits faits sur mesure.
   menu_path: Inventory app > Configuration > Routes
   recommendations:
@@ -346,6 +363,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/warehouses_storage/replenishment/mto.html#inventory-warehouses-storage-unarchive-mto
 - id: inv_initial_quantities
   title: Stock initial
+  parameter: initial_quantities
   objective: Charger les quantités en stock au démarrage, par article et par emplacement.
   menu_path: Inventory app > Operations > Physical Inventory
   recommendations:
@@ -364,6 +382,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/count_products.html#inventory-create-adjustment
 - id: mrp_first_mo
   title: Ordre de fabrication de recette
+  parameter: first_manufacturing_order
   objective: Valider le paramétrage de bout en bout avec un premier ordre de fabrication.
   menu_path: Manufacturing > Operations > Manufacturing Orders
   recommendations:

@@ -10,6 +10,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 from odoo_config_assistant import DOC_VERSION, ERP
+from odoo_config_assistant.referential import ParameterPath, Referential
 
 PUBLIC_DOC_BASE = "https://www.odoo.com/documentation"
 DOC_LANG = "fr"
@@ -256,6 +257,7 @@ class Step(BaseModel):
 
     id: str
     title: str
+    parameter: str | None = None  # paramètre du référentiel métier (F-004)
     objective: str
     menu_path: str
     recommendations: list[Recommendation] = Field(min_length=1)
@@ -327,6 +329,13 @@ class Catalog(BaseModel):
 
     journeys: list[Journey] = Field(default_factory=list)
     community_modules: frozenset[str] | None = None
+    referential: Referential | None = None
+
+    def location(self, step: Step) -> ParameterPath | None:
+        """Domain, module, process and parameter of a step (E-03), when the repository is known."""
+        if self.referential is None or step.parameter is None:
+            return None
+        return self.referential.paths().get(step.parameter)
 
     def enterprise_modules(self, step: Step) -> list[str]:
         """Modules required by the step that the Community edition does not have (Q-008)."""
