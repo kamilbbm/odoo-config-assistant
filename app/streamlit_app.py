@@ -53,6 +53,13 @@ from odoo_config_assistant.models import (  # noqa: E402
     StepStatus,
 )
 from odoo_config_assistant.storage import list_projects, load_project, save_project  # noqa: E402
+from odoo_config_assistant.sync import (  # noqa: E402
+    SyncSettings,
+    SyncStatus,
+    last_published_report,
+    list_reports,
+    synchronize,
+)
 
 MODULE_LABELS = {
     "account": "Comptabilité (account)",
@@ -159,8 +166,12 @@ with st.sidebar:
 
 project = current_project()
 
-tab_profile, tab_plan, tab_step, tab_assistant, tab_export = st.tabs(
-    ["Profil", "Plan", "Fiche étape", "Assistant", "Export"]
+# Alertes documentaires (RG-011) : dernière synchronisation publiée.
+last_report = last_published_report()
+doc_alerts = last_report.step_alerts() if last_report else {}
+
+tab_profile, tab_plan, tab_step, tab_assistant, tab_export, tab_sources = st.tabs(
+    ["Profil", "Plan", "Fiche étape", "Assistant", "Export", "Sources"]
 )
 
 # --------------------------------------------------------------------------- profile
@@ -302,6 +313,7 @@ with tab_plan:
                     "Prérequis bloquants": ", ".join(info.blocking),
                     "À confirmer": "" if rec.verified else "À confirmer",
                     "Édition": "Enterprise" if catalog.enterprise_modules(step) else "",
+                    "Alerte doc": "À revalider" if item.step_id in doc_alerts else "",
                     "Identifiant": step.id,
                 }
             )
@@ -333,6 +345,8 @@ with tab_step:
         rec = step.recommendation_for(project.profile)
 
         st.subheader(step.title)
+        for alert in doc_alerts.get(selected, []):
+            st.warning(alert)
         st.write(step.objective)
         enterprise = catalog.enterprise_modules(step)
         if enterprise:
@@ -496,3 +510,80 @@ with tab_export:
                 file_name=f"modeles_import_{project.id}.zip",
                 mime="application/zip",
             )
+
+
+# --------------------------------------------------------------------------- sources (E-08)
+
+
+def run_sync(**kwargs) -> None:
+    with st.spinner("Synchronisation de la documentation Odoo 18.0"):
+        try:
+            report = synchronize(settings=SyncSettings(retries=1), **kwargs)
+        except ValueError as exc:
+            st.session_state["sync_message"] = ("error", str(exc))
+            return
+    get_retriever.clear()
+    level = "success" if report.status.published else "info"
+    if report.status in (SyncStatus.FAILED, SyncStatus.BLOCKED):
+        level = "error"
+    st.session_state["sync_message"] = (level, f"Synchronisation : {report.status.label}.")
+    st.rerun()
+
+
+with tab_sources:
+    st.header("Sources documentaires")
+    st.write(
+        "Dépôt odoo/documentation, branche 18.0. La version active n'est remplacée que si tous "
+        "les contrôles sont OK (RG-009) ; le compte rendu liste les étapes dont une page source "
+        "a changé (RG-011)."
+    )
+    st.caption(
+        f"Version active : commit `{doc_commit[:12] if doc_commit else 'aucune'}`"
+        + (f", {len(retriever.chunks)} sections indexées" if retriever else "")
+    )
+    message = st.session_state.pop("sync_message", None)
+    if message:
+        getattr(st, message[0])(message[1])
+    if st.button("Synchroniser maintenant"):
+        run_sync(trigger="manuelle")
+
+    reports = list_reports()
+    if not reports:
+        st.info("Aucune synchronisation enregistrée.")
+    else:
+        latest = reports[0]
+        st.subheader("Dernier compte rendu")
+        st.markdown(latest.markdown().replace("## ", "#### ", 1))
+        if latest.status is SyncStatus.BLOCKED:
+            st.warning(
+                "Publication bloquée (ERR-008). Publier la version candidate malgré l'alerte, "
+                "ou attendre la prochaine synchronisation. La décision est tracée."
+            )
+            author = st.text_input("Auteur de la décision")
+            if st.button("Publier la version candidate", disabled=not author.strip()):
+                run_sync(trigger="relance manuelle", force=True, forced_by=author)
+        st.subheader("Historique")
+        st.dataframe(
+            [
+                {
+                    "Date (UTC)": r.started_at.strftime("%Y-%m-%d %H:%M"),
+                    "Déclencheur": r.trigger,
+                    "Statut": r.status.label,
+                    "Avant": (r.active_commit or "")[:7],
+                    "Candidate": (r.candidate_commit or "")[:7],
+                    "Ajoutées": len(r.added),
+                    "Modifiées": len(r.modified),
+                    "Supprimées": len(r.deleted),
+                    "Étapes impactées": len(r.impacted_steps),
+                    "Anomalies": ", ".join(sorted({a.code for a in r.anomalies})),
+                }
+                for r in reports
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+    st.caption(
+        "Synchronisation planifiée : chaque dimanche à 02:00 UTC (workflow GitHub « Doc sync »). "
+        "Sur Streamlit Community Cloud, le disque n'est pas persistant : l'historique repart à "
+        "zéro au redémarrage de l'instance."
+    )

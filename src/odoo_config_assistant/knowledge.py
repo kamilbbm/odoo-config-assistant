@@ -182,6 +182,8 @@ class KnowledgeIndex(BaseModel):
     commit: str
     built_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     chunks: list[Chunk]
+    # Empreinte SHA-256 de chaque page RST de la version (détection des changements, F-002).
+    page_hashes: dict[str, str] = Field(default_factory=dict)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -198,8 +200,14 @@ def build_index(
     include: Iterable[str],
     erp: str = ERP,
     version: str = DOC_VERSION,
+    previous: KnowledgeIndex | None = None,
+    errors: list[tuple[str, str]] | None = None,
 ) -> KnowledgeIndex:
-    """Index every RST file under the ``include`` prefixes (directories or files)."""
+    """Index every RST file under the ``include`` prefixes (directories or files).
+
+    A page that cannot be read or parsed is left out (ERR-005); its sections from ``previous``
+    (the active version), if any, are kept. Each failure is appended to ``errors``.
+    """
     files: set[Path] = set()
     for prefix in include:
         target = docs_root / prefix
@@ -207,9 +215,18 @@ def build_index(
             files.add(target)
         elif target.is_dir():
             files.update(target.rglob("*.rst"))
+    kept: dict[str, list[Chunk]] = {}
+    for chunk in previous.chunks if previous else []:
+        kept.setdefault(chunk.path, []).append(chunk)
     chunks = []
     for path in sorted(files):
-        chunks.extend(chunk_file(docs_root, path, commit, erp, version))
+        try:
+            chunks.extend(chunk_file(docs_root, path, commit, erp, version))
+        except (UnicodeDecodeError, ValueError, IndexError) as exc:
+            rel = path.relative_to(docs_root).as_posix()
+            if errors is not None:
+                errors.append((rel, f"{type(exc).__name__} : {exc}"))
+            chunks.extend(kept.get(rel, []))
     return KnowledgeIndex(erp=erp, version=version, commit=commit, chunks=chunks)
 
 

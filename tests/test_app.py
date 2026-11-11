@@ -20,7 +20,8 @@ def app(monkeypatch):
 
 def test_app_renders_without_exception(app):
     assert not app.exception
-    assert [t.label for t in app.tabs] == ["Profil", "Plan", "Fiche étape", "Assistant", "Export"]
+    labels = [t.label for t in app.tabs]
+    assert labels == ["Profil", "Plan", "Fiche étape", "Assistant", "Export", "Sources"]
     # Au premier chargement, le dernier projet enregistré est ouvert (ici le projet exemple).
     assert app.selectbox[0].value != "+ Nouveau projet"
 

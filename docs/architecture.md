@@ -38,9 +38,10 @@ flowchart LR
 
 ## Flux principal
 
-1. `fetch_docs.py` clone la branche 18.0 en mode superficiel et partiel (pages RST seulement)
-   et enregistre le commit. Si l'index manque, l'application fait ces deux étapes elle-même au
-   premier démarrage (`sources.ensure_index`, mis en cache par `st.cache_resource`).
+1. `sync_docs.py` (ou `fetch_docs.py` seul) clone la branche 18.0 en mode superficiel et
+   partiel (pages RST seulement) et enregistre le commit. Si l'index manque, l'application lance
+   elle-même une première synchronisation au démarrage (`sources.ensure_index`, mis en cache
+   par `st.cache_resource`).
 2. `build_index.py` découpe les pages RST de finance, inventory_and_mrp et des pages citées par
    les parcours en sections (une unité indexée par titre RST, avec son ancre), puis écrit
    `index/odoo-18.0.json`.
@@ -63,6 +64,7 @@ flowchart LR
 | Seuil de couverture (RG-006) | score BM25 minimal et nombre de termes trouvés | refuser plutôt qu'inventer | seuil calibré sur un jeu de questions types |
 | Modèle de langage | optionnel, `claude-opus-5-5`, réponse rejetée si elle ne cite aucun extrait | les extraits restent la seule source | choix du service à arbitrer (Q-002) |
 | Éditions (Q-008) | modules requis par étape, comparés aux modules du dépôt public odoo/odoo 18.0 (`data/editions.json`) | vérifiable sans accès au code Enterprise ; les champs `upgrade_boolean` des réglages Community désignent des modules Enterprise | liste mise à jour à chaque synchronisation |
+| Synchronisation (F-002) | index candidat construit à part, contrôles, `os.replace` vers l'index actif ; empreinte SHA-256 par page RST dans l'index | une seule bascule, la version active n'est jamais modifiée en place (RG-009) ; détection des changements sans historique Git (clone superficiel) | base de données, notification par courriel |
 | Persistance | un fichier JSON par projet, écriture atomique | pas de serveur à installer | base de données applicative |
 | Interface | Streamlit | une seule commande pour lancer la démo | application web multi-utilisateur avec rôles |
 
@@ -79,7 +81,8 @@ confirmée par la documentation porte `verified: false` et une note ; elle appar
 
 | SFD | V0 |
 | --- | --- |
-| F-002, F-003 Sources et indexation | `fetch_docs.py`, `build_index.py` (sans planification ni recomposition française) |
+| F-002 Sources et synchronisation | `sync.py`, `sync_docs.py`, onglet Sources (E-08), workflow Doc sync (sans recomposition française, F-003) |
+| F-013 Alertes de mise à jour | compte rendu de synchronisation, mention « À revalider » dans le plan et la fiche (sans courriel) |
 | F-005 Modèles de parcours | `data/journeys/*.yaml`, `journeys.py` |
 | F-007, F-008 Profil et plan | onglet Profil, `engine.py` |
 | F-009, F-011 Exécution et suivi | onglets Plan et Fiche étape |

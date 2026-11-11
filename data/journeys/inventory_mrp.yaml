@@ -1,5 +1,5 @@
 # Parcours Inventaire et fabrication (Odoo 18).
-# Vérifié contre odoo/documentation 18.0, commit ca129a822019682bd32552e4cbabba2520d1308e.
+# Vérifié contre odoo/documentation 18.0, commit 221e829ac894c79b0f270892c1e02425a0ef4214.
 # Chemins de menu en anglais, tels qu'écrits dans la doc. verified: false = à confirmer.
 
 id: inventory_mrp

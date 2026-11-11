@@ -20,7 +20,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 PORT = 8598
 BASE = f"http://localhost:{PORT}"
-TABS = ["Profil", "Plan", "Fiche étape", "Assistant", "Export"]
+TABS = ["Profil", "Plan", "Fiche étape", "Assistant", "Export", "Sources"]
 BAD_LOG = re.compile(r"Traceback|Exception|Error|Warning|deprecat|Please replace", re.IGNORECASE)
 
 
@@ -92,7 +92,7 @@ def main() -> int:
     if problems:
         print("ÉCHEC :\n- " + "\n- ".join(problems))
         return 1
-    print("OK : application démarrée, 5 onglets parcourus, aucune erreur dans les logs.")
+    print(f"OK : application démarrée, {len(TABS)} onglets parcourus, aucune erreur dans les logs.")
     return 0
 
 

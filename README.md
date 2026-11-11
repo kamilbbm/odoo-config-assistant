@@ -161,8 +161,37 @@ streamlit run app/streamlit_app.py
 
 `fetch_docs.py` télécharge les pages RST de la documentation (clone partiel, environ 16 Mo ;
 `--full` pour le dépôt complet) dans `vendor/`, qui n'est pas versionné. Les deux scripts sont
-facultatifs : si l'index est absent, l'application le construit à son premier démarrage. Pour activer les réponses rédigées, copier `.env.example` en `.env` ou
+facultatifs : si l'index est absent, l'application le construit à son premier démarrage, par
+une première synchronisation. Pour activer les réponses rédigées, copier `.env.example` en `.env` ou
 exporter `ANTHROPIC_API_KEY` ; l'application fonctionne sans.
+
+### Synchronisation de la documentation
+
+```bash
+python scripts/sync_docs.py
+```
+
+La synchronisation (F-002) récupère la branche 18.0 comme version candidate, la compare page par
+page à la version active, construit l'index candidat à part, puis applique les contrôles avant
+publication (RG-009). Si tout est OK, la version candidate remplace la version active en une
+seule bascule et l'ancienne est archivée (`index/sync/archive/`) ; sinon la version active reste
+en service. Le compte rendu (`index/sync/reports/`, onglet **Sources** de l'application) liste
+les pages ajoutées, modifiées et supprimées et les étapes de parcours dont une page source a
+changé (RG-011), signalées « À revalider » dans le plan et sur la fiche étape.
+
+| Code | Contrôle | Effet |
+| --- | --- | --- |
+| ERR-001 | Dépôt inaccessible | 3 tentatives (`--retries`, `--retry-delay`), version active conservée |
+| ERR-002 | Branche ou commit introuvable | Arrêt, version active conservée |
+| ERR-005 | Page RST illisible | Page exclue, ses sections de la version active conservées |
+| ERR-006 | Indexation interrompue | Version candidate abandonnée |
+| ERR-007 | Page ou ancre citée par une étape absente | Étape signalée « Source introuvable » |
+| ERR-008 | Pages en baisse au-delà du seuil (5 % par défaut, Q-004) | Publication bloquée ; `--force --forced-by NOM` ou bouton de l'onglet Sources, décision tracée |
+
+Le workflow [Doc sync](.github/workflows/doc-sync.yml) l'exécute chaque dimanche à 02:00 UTC, à
+partir du commit de vérification des parcours ([data/doc_version.json](data/doc_version.json)) :
+il échoue en cas d'alerte, ce qui déclenche la notification GitHub, et publie le compte rendu
+dans le résumé du job. Au premier démarrage, l'application fait une première synchronisation.
 
 Tests et contrôle du code :
 
@@ -188,8 +217,9 @@ src/odoo_config_assistant/
   imports.py           modèles de fichiers d'import
   storage.py           un fichier JSON par projet
   sources.py           téléchargement de la documentation et construction de l'index
-scripts/               fetch_docs.py, fetch_editions.py, build_index.py, smoke_app.py,
-                       capture_screens.py
+  sync.py              synchronisation : version candidate, contrôles, bascule, compte rendu
+scripts/               fetch_docs.py, sync_docs.py, fetch_editions.py, build_index.py,
+                       smoke_app.py, capture_screens.py
 app/streamlit_app.py   interface en français
 ```
 
@@ -214,11 +244,12 @@ Codes de la SFD (section 3.4). Chaque règle a des tests nommés d'après son co
 La V1 cible est décrite dans la [SFD](docs/SFD.md). Hors périmètre de la V0 :
 
 - rôles, authentification et accès par projet (F-001, RG-004, RG-015) ;
-- synchronisation planifiée de la documentation, versions candidate et active, contrôles de
-  publication (F-002, RG-009, ERR-003 à ERR-008) ;
 - recomposition française des pages et des libellés de menus depuis les fichiers .po (F-003,
-  RG-010) ;
-- alertes lorsqu'une page source d'une étape change (F-013, RG-011) ;
+  RG-010, ERR-003, ERR-004) ;
+- notification des comptes rendus de synchronisation par courriel (F-013) : en V0, résumé du
+  workflow planifié, échec notifié par GitHub, onglet Sources ;
+- relance automatique espacée de 15 minutes hors ligne de commande (ERR-001) et seuils
+  paramétrables par l'organisation (Q-003, Q-004) ;
 - recherche sémantique en complément du BM25, derrière l'interface `Retriever` de `knowledge.py` ;
 - base de données applicative, éditeur de parcours et référentiel Domaine, Module, Processus,
   Paramètre (F-004, F-005, E-09) ;
