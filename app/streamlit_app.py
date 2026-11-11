@@ -24,6 +24,7 @@ from odoo_config_assistant import (  # noqa: E402
     DOC_VERSION,
     ERP,
     conversation,
+    notify,
     repository,
 )
 from odoo_config_assistant.access import (  # noqa: E402
@@ -568,6 +569,7 @@ if "Projet" in tabs:
                         )
                         if st.form_submit_button("Ajouter") and to_add is not None:
                             db.add_member(project.id, to_add.id)
+                            notify.notify_member(db, project, to_add)
                             flash("success", f"{to_add.name} ajouté au projet.")
                             st.rerun()
                     with col2.form("remove-member"):
@@ -754,6 +756,8 @@ if "Fiche étape" in tabs:
                             comment,
                         )
                         save(updated)
+                        if new_status is not item.status:
+                            notify.notify_status(db, updated, selected, catalog, user)
                         flash("success", "Étape enregistrée.")
                         st.rerun()
                     except PrerequisiteError as exc:
@@ -996,6 +1000,58 @@ if "Administration" in tabs:
                     flash("success", "Identité de l'organisation enregistrée.")
                     st.rerun()
 
+        st.subheader("Messagerie (SMTP)")
+        st.caption(
+            "Comptes rendus de synchronisation, alertes, invitations et validations. Le mot de "
+            "passe du serveur vient de la variable d'environnement OCA_SMTP_PASSWORD (secret de "
+            "l'hébergement), jamais de la base. Sans serveur, les notifications sont journalisées."
+        )
+        with st.form("smtp"):
+            col1, col2 = st.columns(2)
+            smtp_host = col1.text_input("Serveur", value=org.smtp_host or "")
+            smtp_port = col2.number_input("Port", min_value=1, max_value=65535, value=org.smtp_port)
+            smtp_user = col1.text_input("Identifiant", value=org.smtp_user or "")
+            smtp_sender = col2.text_input("Expéditeur", value=org.smtp_sender or "")
+            smtp_starttls = st.checkbox("STARTTLS", value=org.smtp_starttls)
+            if st.form_submit_button("Enregistrer la messagerie"):
+                db.save_organisation(
+                    org.model_copy(
+                        update={
+                            "smtp_host": smtp_host.strip() or None,
+                            "smtp_port": int(smtp_port),
+                            "smtp_user": smtp_user.strip() or None,
+                            "smtp_sender": smtp_sender.strip() or None,
+                            "smtp_starttls": smtp_starttls,
+                        }
+                    )
+                )
+                flash("success", "Messagerie enregistrée.")
+                st.rerun()
+        if st.button("Envoyer un courriel de test"):
+            status = notify.send(
+                db, "test", [user.email], "Courriel de test", "La messagerie fonctionne."
+            )
+            flash("info", f"Courriel de test : {status[0]}.")
+            st.rerun()
+        log = db.notifications(50)
+        if log:
+            with st.expander(f"Journal des notifications ({len(log)} dernières)"):
+                st.dataframe(
+                    [
+                        {
+                            "Date (UTC)": n["created_at"].replace("T", " ")[:16],
+                            "Type": n["kind"],
+                            "Destinataire": n["recipient"],
+                            "Objet": n["subject"],
+                            "Statut": n["status"],
+                            "Erreur": n["error"] or "",
+                        }
+                        for n in log
+                    ],
+                    hide_index=True,
+                    width="stretch",
+                )
+
         st.subheader("Utilisateurs et rôles")
         st.dataframe(
             [
@@ -1023,6 +1079,7 @@ if "Administration" in tabs:
                 except ValueError as exc:
                     st.error(str(exc))
                 else:
+                    notify.notify_account(db, created_user)
                     flash("success", f"Compte créé : {created_user.label}.")
                     st.rerun()
         with col2.form("edit-user"):
@@ -1062,6 +1119,7 @@ def run_sync(**kwargs) -> None:
         except ValueError as exc:
             flash("error", str(exc))
             return
+    notify.notify_sync(db, report)
     get_retriever.clear()
     get_menu_labels.clear()
     level = "success" if report.status.published else "info"

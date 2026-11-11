@@ -40,6 +40,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--retry-delay", type=float, default=SyncSettings.retry_delay)
     parser.add_argument("--summary", type=Path, help="ajouter le compte rendu à ce fichier")
     parser.add_argument("--fail-on-alert", action="store_true")
+    parser.add_argument(
+        "--notify",
+        action="store_true",
+        help="envoyer le compte rendu et les alertes par courriel (base OCA_DB, F-013)",
+    )
     args = parser.parse_args(argv)
     if args.force and not args.forced_by:
         parser.error("--force demande --forced-by")
@@ -54,6 +59,12 @@ def main(argv: list[str] | None = None) -> int:
         commit=args.commit,
         settings=settings,
     )
+    if args.notify:
+        from odoo_config_assistant.db import Database
+        from odoo_config_assistant.notify import notify_sync
+
+        statuses = notify_sync(Database(), report)
+        print(f"Notifications : {len(statuses)} ({', '.join(sorted(set(statuses))) or 'aucune'})")
     text = report.markdown()
     print(text)
     if args.summary:
