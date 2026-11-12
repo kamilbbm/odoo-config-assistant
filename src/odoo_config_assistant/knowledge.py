@@ -20,12 +20,18 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, Field
 
 from odoo_config_assistant import DOC_VERSION, ERP
 from odoo_config_assistant.models import LICENSE_NOTICE, LICENSE_URL, public_url
+
+if TYPE_CHECKING:
+    from odoo_config_assistant.translation import Translations
+
+# ERR-004 : sous ce taux, la page est publiée avec la mention « traduction partielle » (Q-003).
+DEFAULT_TRANSLATION_THRESHOLD = 0.8
 
 DEFAULT_INDEX_PATH = Path(__file__).resolve().parents[2] / "index" / "odoo-18.0.json"
 INDEX_FORMAT = 1
@@ -51,6 +57,29 @@ class Chunk(BaseModel):
     page_title: str
     section_title: str
     text: str
+    # Recomposition française (F-003). None : page sans traduction, affichée en anglais.
+    page_title_fr: str | None = None
+    section_title_fr: str | None = None
+    text_fr: str | None = None
+    translation_rate: float | None = None
+    translation_note: str | None = None  # RG-010, mention affichée avec l'extrait
+    # Étiquetage (F-003) : application, pays, modules techniques, libellés de menus.
+    application: str | None = None
+    country: str | None = None
+    modules: list[str] = Field(default_factory=list)
+    menus: list[str] = Field(default_factory=list)
+
+    @property
+    def display_page_title(self) -> str:
+        return self.page_title_fr or self.page_title
+
+    @property
+    def display_section_title(self) -> str:
+        return self.section_title_fr or self.section_title
+
+    @property
+    def display_text(self) -> str:
+        return self.text_fr or self.text
 
     @property
     def url(self) -> str:
@@ -145,17 +174,52 @@ def split_sections(rst: str) -> list[tuple[str, str | None, str]]:
     return [(title, label, "\n".join(body)) for title, label, body in sections]
 
 
+def translation_note(rate: float | None, threshold: float) -> str | None:
+    """RG-010 / ERR-004 mention for a page, None when the translation is complete enough."""
+    if rate is None:
+        return "Page non traduite : passage affiché en anglais."
+    if rate < threshold:
+        return (
+            f"Traduction partielle ({rate:.0%} des passages traduits) : les passages non "
+            "traduits sont affichés en anglais."
+        )
+    if rate < 1:
+        return "Certains passages non traduits sont affichés en anglais."
+    return None
+
+
 def chunk_file(
-    docs_root: Path, path: Path, commit: str, erp: str = ERP, version: str = DOC_VERSION
+    docs_root: Path,
+    path: Path,
+    commit: str,
+    erp: str = ERP,
+    version: str = DOC_VERSION,
+    translations: Translations | None = None,
+    threshold: float = DEFAULT_TRANSLATION_THRESHOLD,
 ) -> list[Chunk]:
     rel = path.relative_to(docs_root).as_posix()
-    sections = split_sections(path.read_text(encoding="utf-8"))
+    rst = path.read_text(encoding="utf-8")
+    sections = split_sections(rst)
     page_title = next((t for t, _, _ in sections if t), path.stem)
+    french: list[tuple[str, str | None, str]] | None = None
+    rate: float | None = None
+    if translations is not None and not translations.domain_failed(rel):
+        recomposed = translations.recompose(rel, rst)
+        if recomposed is not None:
+            candidate = split_sections(recomposed.text)
+            if len(candidate) == len(sections):
+                french, rate = candidate, recomposed.rate
+    page_title_fr = next((t for t, _, _ in french if t), None) if french else None
+    note = translation_note(rate, threshold) if translations is not None else None
     chunks = []
     for n, (title, label, body) in enumerate(sections):
         text = clean_rst(body)
         if len(text) < 40:
             continue
+        fr_title, fr_text = None, None
+        if french:
+            fr_title = french[n][0] or page_title_fr
+            fr_text = clean_rst(french[n][2])
         chunks.append(
             Chunk(
                 id=f"{rel}#{n}",
@@ -167,6 +231,12 @@ def chunk_file(
                 page_title=page_title,
                 section_title=title or page_title,
                 text=text,
+                page_title_fr=page_title_fr,
+                section_title_fr=fr_title,
+                text_fr=fr_text,
+                translation_rate=rate,
+                translation_note=note,
+                **chunk_tags(rel, body),
             )
         )
     return chunks
@@ -182,6 +252,12 @@ class KnowledgeIndex(BaseModel):
     commit: str
     built_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     chunks: list[Chunk]
+    # Empreinte SHA-256 de chaque page RST de la version (détection des changements, F-002).
+    page_hashes: dict[str, str] = Field(default_factory=dict)
+    # Recomposition française (F-003) : libellés de menus et taux de traduction par page.
+    menu_labels: dict[str, str] = Field(default_factory=dict)
+    translation_rates: dict[str, float | None] = Field(default_factory=dict)
+    translation_threshold: float = DEFAULT_TRANSLATION_THRESHOLD
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -198,8 +274,16 @@ def build_index(
     include: Iterable[str],
     erp: str = ERP,
     version: str = DOC_VERSION,
+    previous: KnowledgeIndex | None = None,
+    errors: list[tuple[str, str]] | None = None,
+    translations: Translations | None = None,
+    threshold: float = DEFAULT_TRANSLATION_THRESHOLD,
 ) -> KnowledgeIndex:
-    """Index every RST file under the ``include`` prefixes (directories or files)."""
+    """Index every RST file under the ``include`` prefixes (directories or files).
+
+    A page that cannot be read or parsed is left out (ERR-005); its sections from ``previous``
+    (the active version), if any, are kept. Each failure is appended to ``errors``.
+    """
     files: set[Path] = set()
     for prefix in include:
         target = docs_root / prefix
@@ -207,10 +291,27 @@ def build_index(
             files.add(target)
         elif target.is_dir():
             files.update(target.rglob("*.rst"))
+    kept: dict[str, list[Chunk]] = {}
+    for chunk in previous.chunks if previous else []:
+        kept.setdefault(chunk.path, []).append(chunk)
     chunks = []
     for path in sorted(files):
-        chunks.extend(chunk_file(docs_root, path, commit, erp, version))
-    return KnowledgeIndex(erp=erp, version=version, commit=commit, chunks=chunks)
+        try:
+            chunks.extend(
+                chunk_file(docs_root, path, commit, erp, version, translations, threshold)
+            )
+        except (UnicodeDecodeError, ValueError, IndexError) as exc:
+            rel = path.relative_to(docs_root).as_posix()
+            if errors is not None:
+                errors.append((rel, f"{type(exc).__name__} : {exc}"))
+            chunks.extend(kept.get(rel, []))
+    index = KnowledgeIndex(
+        erp=erp, version=version, commit=commit, chunks=chunks, translation_threshold=threshold
+    )
+    if translations is not None:
+        index.menu_labels = dict(translations.menu_labels)
+        index.translation_rates = {c.path: c.translation_rate for c in chunks}
+    return index
 
 
 # --------------------------------------------------------------------------- tokenization
@@ -221,6 +322,7 @@ on or ou par pour que quel quelle quelles quels qui sur the this to un une what 
 with dans comment faut il elle on doit dois peut est-ce ce cette ces mon ma mes nos notre
 votre vos son sa ses leur leurs au aux y a-t-il je nous vous ils elles se sont avec sans
 plus moins tout tous toute toutes faire configure configurer odoo
+créer creer définir definir paramétrer parametrer gérer gerer utiliser ajouter mettre peux
 """
 _STOPWORDS = frozenset(_STOPWORDS_TEXT.split())
 
@@ -353,7 +455,44 @@ GLOSSARY: dict[str, str] = {
 }
 
 # Country code -> page name under content/applications/finance/fiscal_localizations/
-LOCALIZATION_PAGES = {"CA": "canada", "FR": "france", "BE": "belgium", "US": "united_states"}
+# Pays (ISO 3166-1) des pages de localisation fiscale de la documentation 18.0.
+LOCALIZATION_PAGES = {
+    "AR": "argentina", "AU": "australia", "AT": "austria", "BE": "belgium", "BR": "brazil",
+    "CA": "canada", "CL": "chile", "CO": "colombia", "HR": "croatia", "DK": "denmark",
+    "EC": "ecuador", "EG": "egypt", "FR": "france", "DE": "germany", "GT": "guatemala",
+    "HK": "hong_kong", "HU": "hungary", "IN": "india", "ID": "indonesia", "IT": "italy",
+    "JO": "jordan", "KE": "kenya", "LU": "luxembourg", "MY": "malaysia", "MX": "mexico",
+    "NL": "netherlands", "NZ": "new_zealand", "OM": "oman", "PE": "peru", "PH": "philippines",
+    "PL": "poland", "RO": "romania", "SA": "saudi_arabia", "SG": "singapore", "ES": "spain",
+    "CH": "switzerland", "TW": "taiwan", "TH": "thailand", "AE": "united_arab_emirates",
+    "GB": "united_kingdom", "US": "united_states", "UY": "uruguay", "VN": "vietnam",
+}  # fmt: skip
+_COUNTRY_OF_PAGE = {page: code for code, page in LOCALIZATION_PAGES.items()}
+_MODULE_NAME = re.compile(
+    r"`((?:l10n|account|stock|mrp|sale|purchase|website|hr|point_of_sale|pos|base|product|"
+    r"quality|repair|maintenance|project|helpdesk|crm|mass_mailing|uom)(?:_[a-z0-9]+)*)`"
+)
+_MENU_TAG = re.compile(r":menuselection:`([^`]*)`")
+
+
+def chunk_tags(path: str, raw: str) -> dict:
+    """F-003 labels of an indexed unit: application, country, technical modules, menus."""
+    parts = path.removesuffix(".rst").split("/")
+    application = "/".join(parts[2:4]) if len(parts) > 2 and parts[1] == "applications" else None
+    country = None
+    if path.startswith(_LOCALIZATION_DIR):
+        page = path.removeprefix(_LOCALIZATION_DIR).split("/")[0].removesuffix(".rst")
+        country = _COUNTRY_OF_PAGE.get(page)
+    menus = [
+        " > ".join(i.strip() for i in re.sub(r"\s+", " ", m).split("-->"))
+        for m in _MENU_TAG.findall(raw)
+    ]
+    return {
+        "application": application,
+        "country": country,
+        "modules": sorted(set(_MODULE_NAME.findall(raw))),
+        "menus": list(dict.fromkeys(menus)),
+    }
 _LOCALIZATION_DIR = "content/applications/finance/fiscal_localizations/"
 
 
@@ -389,8 +528,9 @@ def expand_query(query: str) -> list[str]:
 @dataclass(frozen=True)
 class Hit:
     chunk: Chunk
-    score: float
+    score: float  # BM25 : seul score retenu pour la couverture (RG-006)
     matched_terms: frozenset[str]
+    semantic: float = 0.0  # similarité cosinus dans l'index sémantique
 
 
 class Retriever(Protocol):
@@ -412,7 +552,12 @@ class BM25Retriever:
         self.k1 = k1
         self.b = b
         self._docs = [
-            Counter(tokenize(f"{c.page_title} {c.section_title} {c.section_title} {c.text}"))
+            Counter(
+                tokenize(
+                    f"{c.page_title} {c.section_title} {c.section_title} {c.text} "
+                    f"{c.section_title_fr or ''} {c.section_title_fr or ''} {c.text_fr or ''}"
+                )
+            )
             for c in chunks
         ]
         self._lengths = [sum(d.values()) for d in self._docs]
@@ -459,23 +604,46 @@ class BM25Retriever:
                 score *= 1.25
             if country and chunk.path.startswith(_LOCALIZATION_DIR):
                 page = chunk.path.removeprefix(_LOCALIZATION_DIR).split("/")[0].removesuffix(".rst")
-                if page != own_page:
+                if page != own_page and page in _COUNTRY_OF_PAGE:
                     score *= 0.5
             hits.append(Hit(chunk, score, frozenset(matched)))
         hits.sort(key=lambda h: h.score, reverse=True)
         return hits[:k]
 
 
-def is_covered(hits: list[Hit], query: str, min_score: float = 6.0, min_terms: int = 2) -> bool:
-    """RG-006 guard: the best hit must be strong and match enough distinct query terms.
+def is_covered(
+    hits: list[Hit],
+    query: str,
+    min_score: float = 6.0,
+    min_terms: int = 2,
+    min_share: float = 2 / 3,
+) -> bool:
+    """RG-006 guard: the best hit must be strong and match enough of the question.
 
-    A query with a single meaningful term only needs that term to match.
+    A word of the question counts as found when the hit contains it or its main English
+    equivalent (first term of the glossary); a secondary equivalent is not enough ("TVQ" is not
+    found because "Québec" is). At least ``min_share`` of the words, and ``min_terms`` of them,
+    must be found. A question with a single meaningful word only needs that word.
     """
     if not hits:
         return False
-    needed = min(min_terms, len(set(tokenize(query))) or 1)
-    best = hits[0]
-    return best.score >= min_score and len(best.matched_terms) >= needed
+    best = max(hits, key=lambda h: h.score)  # le classement peut être hybride
+    if best.score < min_score:
+        return False
+    words = []
+    for word in dict.fromkeys(re.findall(r"[\w]+", query.lower())):
+        folded = tokenize(word)
+        if not folded:
+            continue
+        forms = set(folded)
+        if word in GLOSSARY:
+            forms.update(tokenize(GLOSSARY[word])[:1])
+        words.append(forms)
+    if not words:
+        return False
+    found = sum(1 for forms in words if forms & best.matched_terms)
+    needed = min(min_terms, len(words))
+    return found >= needed and found >= min_share * len(words)
 
 
 # --------------------------------------------------------------------------- citations
@@ -491,6 +659,7 @@ class Citation(BaseModel):
     version: str
     excerpt: str = ""
     number: int | None = None
+    translation_note: str | None = None
     license: str = LICENSE_NOTICE
     license_url: str = LICENSE_URL
 
@@ -498,12 +667,10 @@ class Citation(BaseModel):
     def from_chunk(
         cls, chunk: Chunk, number: int | None = None, excerpt_chars: int = 600
     ) -> Citation:
-        title = chunk.page_title
-        if chunk.section_title and chunk.section_title != chunk.page_title:
-            title = f"{chunk.page_title} : {chunk.section_title}"
-        excerpt = (
-            chunk.text if len(chunk.text) <= excerpt_chars else chunk.text[:excerpt_chars] + "…"
-        )
+        page, section = clean_rst(chunk.display_page_title), clean_rst(chunk.display_section_title)
+        title = page if not section or section == page else f"{page} : {section}"
+        text = chunk.display_text
+        excerpt = text if len(text) <= excerpt_chars else text[:excerpt_chars] + "…"
         return cls(
             title=title,
             path=chunk.path,
@@ -512,6 +679,7 @@ class Citation(BaseModel):
             version=chunk.version,
             excerpt=excerpt,
             number=number,
+            translation_note=chunk.translation_note,
         )
 
     def markdown(self) -> str:

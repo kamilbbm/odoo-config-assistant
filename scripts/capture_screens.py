@@ -7,8 +7,11 @@ Usage: python scripts/capture_screens.py [--out docs/img]
 from __future__ import annotations
 
 import argparse
+import os
+import re
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -66,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
             "light",
         ],
         cwd=ROOT,
+        env={**os.environ, "OCA_DB": str(Path(tempfile.mkdtemp()) / "captures.db")},
     )
     try:
         wait_for_server()
@@ -73,7 +77,10 @@ def main(argv: list[str] | None = None) -> int:
             browser = pw.chromium.launch()
             page = browser.new_page(viewport={"width": 1440, "height": 960}, device_scale_factor=2)
 
-            page.goto(BASE)
+            # La fiche ouverte vient du paramètre ?step= ; la connexion garde l'adresse.
+            page.goto(f"{BASE}/?step=fin_taxes")
+            settle(page)
+            page.get_by_role("button", name="Camille Consultante (Consultant)").click()
             settle(page)
             open_tab(page, "Plan")
             # Streamlit défile dans son propre conteneur : on agrandit la fenêtre pour que les
@@ -83,21 +90,21 @@ def main(argv: list[str] | None = None) -> int:
             page.screenshot(path=args.out / "01-plan.png", full_page=True)
             page.set_viewport_size({"width": 1440, "height": 960})
 
-            page.goto(f"{BASE}/?step=fin_taxes")
-            settle(page)
             open_tab(page, "Fiche étape")
             page.screenshot(path=args.out / "02-fiche-etape.png", full_page=True)
 
             open_tab(page, "Assistant")
-            page.get_by_label("Question").fill(
+            page.locator('[data-testid="stMain"]').get_by_label("Question", exact=True).fill(
                 "Comment configurer les positions fiscales au Québec ?"
             )
-            page.get_by_role("button", name="Demander").click()
-            page.get_by_text("Fiscal positions", exact=False).first.wait_for(timeout=30000)
+            page.locator('[data-testid="stMain"]').get_by_role("button", name="Demander").click()
+            page.locator('[data-testid="stMain"]').get_by_text(
+                re.compile("Positions fiscales|Fiscal positions")
+            ).first.wait_for(timeout=30000)
             settle(page)
             page.screenshot(path=args.out / "03-assistant.png", full_page=True)
 
-            open_tab(page, "Profil")
+            open_tab(page, "Projet")
             page.screenshot(path=args.out / "04-profil.png", full_page=True)
             browser.close()
     finally:

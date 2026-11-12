@@ -7,6 +7,7 @@ Usage: python scripts/smoke_app.py
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -20,7 +21,20 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 PORT = 8598
 BASE = f"http://localhost:{PORT}"
-TABS = ["Profil", "Plan", "Fiche étape", "Assistant", "Export"]
+# Compte de démonstration administrateur : il voit tous les écrans (E-01 à E-08).
+LOGIN = "Alex Administrateur (Administrateur)"
+TABS = [
+    "Tableau de bord",
+    "Projet",
+    "Plan",
+    "Fiche étape",
+    "Assistant",
+    "Livrables",
+    "Contrôle d'écart",
+    "Administration",
+    "Sources",
+    "Référentiel",
+]
 BAD_LOG = re.compile(r"Traceback|Exception|Error|Warning|deprecat|Please replace", re.IGNORECASE)
 
 
@@ -46,6 +60,8 @@ def settle(page) -> None:
 
 def main() -> int:
     log_path = Path(tempfile.mkstemp(prefix="streamlit-", suffix=".log")[1])
+    # Base neuve, chargée avec les données de démonstration (comme sur Community Cloud).
+    env = {**os.environ, "OCA_DB": str(Path(tempfile.mkdtemp()) / "smoke.db")}
     with log_path.open("w") as log:
         server = subprocess.Popen(
             [
@@ -53,7 +69,7 @@ def main() -> int:
                 "--server.headless", "true", "--server.port", str(PORT),
                 "--browser.gatherUsageStats", "false",
             ],
-            cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+            cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, env=env,
         )  # fmt: skip
         problems: list[str] = []
         try:
@@ -63,15 +79,24 @@ def main() -> int:
                 page = browser.new_page(viewport={"width": 1440, "height": 960})
                 page.goto(BASE)
                 settle(page)  # le premier démarrage télécharge la doc et construit l'index
+                page.get_by_role("button", name=LOGIN).click()
+                settle(page)
                 for tab in TABS:
                     page.get_by_role("tab", name=tab).click()
                     settle(page)
                     if page.locator('[data-testid="stException"]').count():
                         problems.append(f"exception affichée dans l'onglet {tab}")
                 page.get_by_role("tab", name="Assistant").click()
-                page.get_by_label("Question").fill("Comment imprimer des chèques ?")
-                page.get_by_role("button", name="Demander").click()
-                page.get_by_text("Writing checks", exact=False).first.wait_for(timeout=30000)
+                page.locator('[data-testid="stMain"]').get_by_label("Question", exact=True).fill(
+                    "Comment imprimer des chèques ?"
+                )
+                page.locator('[data-testid="stMain"]').get_by_role(
+                    "button", name="Demander"
+                ).click()
+                # Titre recomposé en français (F-003), en anglais si la traduction manque.
+                page.locator('[data-testid="stMain"]').get_by_text(
+                    re.compile("Émettre des chèques|Writing checks")
+                ).first.wait_for(timeout=30000)
                 body = page.inner_text("body")
                 page.get_by_role("tab", name="Plan").click()
                 settle(page)
@@ -92,7 +117,7 @@ def main() -> int:
     if problems:
         print("ÉCHEC :\n- " + "\n- ".join(problems))
         return 1
-    print("OK : application démarrée, 5 onglets parcourus, aucune erreur dans les logs.")
+    print(f"OK : application démarrée, {len(TABS)} onglets parcourus, aucune erreur dans les logs.")
     return 0
 
 

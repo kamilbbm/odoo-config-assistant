@@ -1,11 +1,17 @@
 # Assistant de configuration Odoo 18
 
-> **In short (EN).** A working V0 of an Odoo 18 configuration assistant. A consultant enters a
-> company profile; the app builds a configuration plan ordered by prerequisites, shows one sheet
-> per step (goal, menu path, recommended value, sources), tracks progress, answers questions with
-> citations from the official Odoo documentation, and exports a configuration workbook to Excel.
-> Three journeys: Finance for a Quebec company (GST/QST), Finance for a French company (VAT,
-> SEPA, e-invoicing, FEC) and Inventory and manufacturing for a small manufacturer. Every step is checked against the odoo/documentation 18.0 repository by tests.
+> **In short (EN).** An Odoo 18 configuration assistant implementing its functional
+> specification (V1 and phase 2). Consultants create client projects; the company profile
+> drives a configuration plan ordered by prerequisites, grouped by domain, module and process;
+> each step sheet gives the goal, the menu path (in French), the recommended value and its
+> sources; the client user validates the steps. A documentation assistant answers with
+> citations from the official Odoo documentation, recomposed in French from the official
+> translations, with hybrid lexical and semantic search. The documentation is synchronized
+> weekly with controls, alerts on changed source pages and e-mail notifications. Deliverables
+> (Excel and Word workbook, checklist, import templates) carry the organisation identity. A
+> read-only gap control compares the plan with the client's Odoo instance. Three journeys
+> (Finance Quebec, Finance France, Inventory and manufacturing), 56 steps checked against the
+> odoo/documentation 18.0 repository by tests.
 > Live demo: https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/
 
 [![CI](https://github.com/kamilbbm/odoo-config-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/kamilbbm/odoo-config-assistant/actions/workflows/ci.yml)
@@ -20,107 +26,71 @@ demande de connaître l'ordre des étapes, leurs dépendances et les obligations
 documentation éditeur est organisée par application, pas par métier. Ce savoir reste dans la tête
 des consultants : il n'est ni capitalisé ni outillé, et chaque projet le reconstitue.
 
-Ce dépôt est la V0 d'un outil qui structure ce savoir en parcours vérifiables, rattachés à la
-documentation officielle, et qui produit un paramétrage documenté et traçable. La spécification
-fonctionnelle complète (V1 cible) est dans [docs/SFD.md](docs/SFD.md).
+Cet outil structure ce savoir en parcours vérifiables, rattachés à la documentation officielle,
+et produit un paramétrage documenté et traçable. Il réalise la spécification fonctionnelle
+([docs/SFD.md](docs/SFD.md)) : la correspondance exigence par exigence est dans
+[docs/couverture.md](docs/couverture.md).
 
 ## Démo
 
-Deux projets exemples fictifs, à choisir dans la liste des projets :
+La démo s'ouvre sur l'écran de connexion. Les comptes fictifs de l'organisation de
+démonstration se choisissent en un clic (mot de passe `demo-odoo-18`) :
 
-- Atelier Boréal inc., PME manufacturière au Québec ([projects/exemple.json](projects/exemple.json)),
-  ouvert par défaut ;
-- Cabinet Vauban Conseil SAS, société de conseil à Lille
-  ([projects/exemple-fr.json](projects/exemple-fr.json)) : parcours Finance France avec
-  prélèvement SEPA, Chorus Pro et reprise de l'historique par FEC.
+| Compte | Rôle | Ce qu'il voit |
+| --- | --- | --- |
+| Camille Consultante | Consultant | les deux projets, plan, fiches, livrables, contrôle d'écart |
+| Benoît Boréal | Utilisateur client | le projet Atelier Boréal, valide les étapes faites |
+| Valérie Vauban | Utilisateur client | le projet Cabinet Vauban, valide les étapes faites |
+| Romane Référente | Référent contenu | sources documentaires, référentiel et éditeur de parcours |
+| Alex Administrateur | Administrateur | tout, plus l'identité de l'organisation, les utilisateurs et la messagerie |
+
+Projets exemples fictifs : Atelier Boréal inc., PME manufacturière au Québec
+([projects/exemple.json](projects/exemple.json)) ; Cabinet Vauban Conseil SAS, société de conseil
+à Lille ([projects/exemple-fr.json](projects/exemple-fr.json)), parcours Finance France avec
+prélèvement SEPA, Chorus Pro et reprise de l'historique par FEC.
 
 | Plan de configuration | Fiche étape |
 | --- | --- |
-| ![Plan ordonné par prérequis, avancement](docs/img/01-plan.png) | ![Fiche étape avec badge « À confirmer » et sources](docs/img/02-fiche-etape.png) |
-| **Assistant documentaire** | **Profil de l'entreprise** |
-| ![Réponse avec citations et licence](docs/img/03-assistant.png) | ![Questionnaire de profil](docs/img/04-profil.png) |
+| ![Plan ordonné par prérequis, par domaine, module et processus](docs/img/01-plan.png) | ![Fiche étape : menu en français, badge « À confirmer », sources](docs/img/02-fiche-etape.png) |
+| **Assistant documentaire** | **Projet et profil** |
+| ![Réponse avec citations en français et licence](docs/img/03-assistant.png) | ![Questionnaire de profil et membres du projet](docs/img/04-profil.png) |
 
 Les captures sont produites par `scripts/capture_screens.py` (workflow `Screenshots`).
 
-## Démo en ligne
+## Fonctionnalités
 
-L'application est déployée sur Streamlit Community Cloud, branche `main` :
-[https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/](https://odoo-config-assistant-quirerfrcwkuhiugt6aejy.streamlit.app/)
+| Écran | Rôle | Contenu |
+| --- | --- | --- |
+| Tableau de bord (E-01) | Consultant, client, administrateur | projets accessibles, avancement global et par domaine |
+| Projet (E-02) | idem | profil de l'entreprise (pays, activité, taille, édition Odoo, modules, options), recalcul du plan, membres du projet |
+| Plan (E-03) | idem | étapes ordonnées par prérequis, domaine, module et processus, statuts, prérequis bloquants, « À confirmer », « Enterprise », « À revalider » |
+| Fiche étape (E-04) | idem | objectif, chemin de menu en français (et en anglais), valeur recommandée selon le profil, prérequis, sources, échanges avec l'assistant, statut, valeur retenue, commentaire, validation client |
+| Assistant (E-05) | tous | panneau latéral sur toutes les pages, contextualisé à l'étape ouverte ; historique des échanges du projet |
+| Livrables (E-06) | Consultant du projet | cahier de paramétrage Excel (avec checklist) et Word, modèles de fichiers d'import, historique |
+| Contrôle d'écart (phase 2) | Consultant du projet | lecture seule de l'instance Odoo du client et comparaison avec le plan |
+| Administration (E-07) | Administrateur | identité de l'organisation (nom, logo, mentions), seuils, messagerie, utilisateurs et rôles |
+| Sources (E-08) | Administrateur, référent | source déclarée, synchronisation, comptes rendus, publication forcée |
+| Référentiel (E-09) | Référent contenu | étapes à revalider, arborescence Domaine > Module > Processus > Paramètre, éditeur de parcours, historique |
 
-Elle s'ouvre sur le projet exemple Atelier Boréal ; le projet Cabinet Vauban se choisit dans la
-liste des projets. Une instance en veille met une à deux
-minutes à redémarrer à la première visite.
+### Parcours
 
-Pour redéployer sur [Streamlit Community Cloud](https://streamlit.io/cloud) :
+Trois parcours, 56 étapes, dans [data/journeys](data/journeys), rattachées au référentiel métier
+([data/referential.yaml](data/referential.yaml), sept domaines de la SFD) :
 
-1. New app, dépôt `kamilbbm/odoo-config-assistant`, branche `main`, fichier principal
-   `app/streamlit_app.py`, Python 3.11 ou plus récent.
-2. Facultatif : dans Advanced settings, Secrets, ajouter `ANTHROPIC_API_KEY = "..."` pour les
-   réponses rédigées. Sans clé, l'assistant affiche les extraits classés.
-3. Déployer. Au premier démarrage, l'application télécharge les pages RST de la documentation
-   Odoo 18.0 (environ 16 Mo) et construit l'index, en quelques secondes ; le résultat est gardé
-   en cache (`st.cache_resource`) pour la durée de vie de l'instance.
+- **Finance, société québécoise** (18 étapes) : localisation canadienne, TPS et TVQ, positions
+  fiscales par province, plan comptable, journaux, banque, soldes d'ouverture, exercice, devise,
+  conditions de paiement, chèques, verrouillage, rapports.
+- **Finance, société française** (19 étapes) : localisation française, TVA et positions
+  fiscales, plan comptable, journaux, banque, paiements SEPA, soldes d'ouverture ou import FEC,
+  conditions de paiement, facturation électronique par plateforme agréée, Chorus Pro, rapport de
+  TVA, export FEC, liasse fiscale et verrouillage.
+- **Inventaire et fabrication** (19 étapes) : entrepôt et emplacements, routes, réceptions et
+  livraisons, unités de mesure, catégories et valorisation, composants achetés, lots, postes de
+  travail, nomenclatures, réapprovisionnement, fabrication à la commande, stock initial, ordre de
+  fabrication de recette.
 
-Les dépendances viennent de [requirements.txt](requirements.txt) et `git` de
-[packages.txt](packages.txt). Sur Community Cloud, le disque n'est pas persistant : les projets
-créés en ligne disparaissent au redémarrage de l'instance, seuls les projets exemples sont permanents.
-Le job CI `app-smoke` reproduit ce démarrage sur un dépôt neuf et échoue si les logs du serveur
-contiennent une erreur ou un avertissement.
-
-## Ce que fait la V0
-
-- **Profil de l'entreprise** : pays, province, activité, taille, modules souhaités, options
-  (devises étrangères, chèques, lots, fabrication à la commande ; pour la France, prélèvement
-  SEPA, clients publics via Chorus Pro, reprise de l'historique par FEC).
-- **Plan ordonné** : filtrage des étapes applicables au profil, tri topologique des prérequis,
-  détection des cycles et des prérequis inexistants au chargement du référentiel.
-- **Trois parcours, 56 étapes** dans [data/journeys](data/journeys) :
-  - Finance, société québécoise (18 étapes) : localisation canadienne, TPS et TVQ, positions
-    fiscales par province, plan comptable, journaux, comptes bancaires, soldes d'ouverture,
-    exercice fiscal, devise, conditions de paiement, chèques, verrouillage, rapports.
-  - Finance, société française (19 étapes) : localisation française, TVA et positions fiscales,
-    plan comptable, journaux, comptes bancaires, paiements SEPA (virement et prélèvement), soldes
-    d'ouverture ou import FEC, conditions de paiement, facturation électronique par plateforme
-    agréée, Chorus Pro, rapport de TVA, export FEC, liasse fiscale et verrouillage.
-  - Inventaire et fabrication (19 étapes) : entrepôt et emplacements, routes, réceptions et
-    livraisons, unités de mesure, catégories et valorisation, composants achetés, lots, postes de
-    travail, nomenclatures, réapprovisionnement, fabrication à la commande, stock initial, ordre
-    de fabrication de recette.
-- **Fiche étape** : objectif, chemin de menu Odoo 18, valeur recommandée selon le profil,
-  prérequis (terminés, bloquants, hors plan), sources avec lien et licence, statut, valeur
-  retenue, commentaire.
-- **Suivi des statuts** : À faire, En cours, Fait, Validé, Hors périmètre.
-- **Assistant documentaire** : recherche BM25 dans la documentation Odoo 18.0 indexée par section.
-  Sans clé d'API, il affiche les extraits classés avec leur source. Si `ANTHROPIC_API_KEY` est
-  défini, un modèle Claude rédige la réponse à partir des seuls extraits retrouvés ; une réponse
-  qui ne cite aucun extrait est rejetée. Une question non couverte reçoit une réponse explicite
-  « non couverte par la documentation ».
-- **Cahier de paramétrage Excel** : une ligne par étape, statut, valeur recommandée, colonne
-  « À confirmer », valeur retenue, commentaire, sources, commit de la documentation, édition
-  requise ; feuille **Checklist** imprimable (étapes du plan dans l'ordre, case à cocher, date et
-  initiales).
-- **Modèles de fichiers d'import** (.zip) : un fichier Excel par jeu de données à charger
-  (plan comptable, soldes d'ouverture, clients et fournisseurs, articles, postes de travail,
-  nomenclatures, règles de réapprovisionnement, stock initial), limité aux étapes du plan.
-  En-têtes au nom technique des champs, feuille Aide avec le sens et un exemple de chaque
-  colonne. Chaque colonne est vérifiée par les tests contre les champs déclarés dans le code de
-  l'édition Community 18.0 ([data/odoo_fields.json](data/odoo_fields.json)), référentiel dans
-  [data/import_templates.yaml](data/import_templates.yaml).
-
-### Éditions Community et Enterprise
-
-Le profil précise l'édition d'Odoo (question Q-008 de la SFD). Chaque étape déclare les modules
-techniques dont elle a besoin ; un module absent du dépôt public
-[odoo/odoo](https://github.com/odoo/odoo) 18.0 relève de l'édition Enterprise. La liste des
-modules Community est extraite par `scripts/fetch_editions.py` dans
-[data/editions.json](data/editions.json), avec le commit utilisé.
-
-- Édition Community : les étapes qui exigent un module Enterprise sont hors plan (rapports et
-  déclaration de taxes `account_reports`, exercice fiscal et verrouillage `account_accountant`,
-  paiements SEPA `account_iso20022`, rapports et chèques canadiens, export FEC) ; la fiche étape
-  rappelle que l'application comptable s'y appelle Invoicing.
-- Édition Enterprise ou non précisée : toutes les étapes restent au plan ; celles qui exigent
-  Enterprise portent la mention « Enterprise » dans le plan, la fiche et le cahier.
+Les autres domaines de la SFD (Ventes, Services, RH, Marketing, Site web) sont présents dans le
+référentiel avec leurs modules, sans parcours modélisé pour l'instant.
 
 ### Véracité du contenu
 
@@ -128,18 +98,76 @@ Le contenu des parcours vient de la documentation officielle (dépôt
 [odoo/documentation](https://github.com/odoo/documentation), branche 18.0), pas de la mémoire
 d'un consultant ou d'un modèle :
 
-- chaque étape cite au moins une page RST, avec son ancre et son URL publique ;
+- chaque étape cite au moins une page RST, avec son ancre et son URL publique (RG-012, RG-014) ;
 - les tests vérifient, dans le clone de la documentation, que la page existe, que l'ancre y est
   déclarée, que le titre correspond et que le chemin de menu y figure mot pour mot ;
-- une valeur que la documentation ne confirme pas (taux de TPS et de TVQ, périodicité des
-  déclarations, conditions de paiement, choix selon la taille de l'entreprise) est marquée
-  `verified: false` avec une note, et s'affiche avec le badge « À confirmer » ;
-- le commit de la documentation est conservé sur chaque étape, chaque réponse et dans le cahier.
+- une valeur que la documentation ne confirme pas (taux de taxe, périodicité des déclarations,
+  délais de paiement…) est marquée `verified: false` avec une note et le badge « À confirmer » ;
+- le commit de la documentation est conservé sur chaque étape, chaque réponse et chaque livrable ;
+- les chemins de menu sont écrits en anglais, tels que dans la documentation, et affichés en
+  français grâce aux traductions officielles.
 
-Les chemins de menu sont en anglais, tels qu'écrits dans la documentation, pour rester
-vérifiables. Les libellés français viendront des fichiers de traduction .po (feuille de route).
+### Documentation en français et recherche
 
-## Lancer la démo
+La synchronisation récupère les pages RST et les traductions françaises (.po). Chaque page est
+recomposée en français en remplaçant chaque segment dont le texte anglais correspond exactement ;
+un passage non traduit reste en anglais avec une mention (RG-010), et une page sous le seuil de
+traduction est publiée avec la mention « traduction partielle » (ERR-004). Sur la branche 18.0,
+325 pages indexées sont traduites à 97 % en moyenne.
+
+La recherche est hybride : BM25 sur le texte anglais et français, et index sémantique (analyse
+sémantique latente des sections bilingues, calculée à la synchronisation), fusionnés par rang.
+La décision « non couverte par la documentation » (RG-006) reste lexicale, pour ne jamais
+inventer une couverture. Avec `ANTHROPIC_API_KEY`, un modèle Claude rédige la réponse à partir des
+seuls extraits trouvés ; une réponse qui ne cite aucun extrait est rejetée.
+
+### Éditions Community et Enterprise
+
+Le profil précise l'édition d'Odoo (Q-008). Chaque étape déclare ses modules techniques ; un
+module absent du dépôt public [odoo/odoo](https://github.com/odoo/odoo) 18.0 relève d'Enterprise
+([data/editions.json](data/editions.json), produit par `scripts/fetch_editions.py`). En Community,
+les étapes Enterprise sont hors plan et la fiche rappelle que l'application comptable s'y appelle
+Invoicing.
+
+### Synchronisation de la documentation
+
+```bash
+python scripts/sync_docs.py
+```
+
+La version candidate est comparée page par page à la version active, indexée à part, puis
+contrôlée ; elle remplace la version active en une seule bascule si tous les contrôles sont OK
+(RG-009), et l'ancienne est archivée. Le compte rendu liste les pages ajoutées, modifiées et
+supprimées et les étapes dont une page source a changé (RG-011) : elles sont signalées « À
+revalider » jusqu'à leur revalidation par le référent contenu (E-09).
+
+| Code | Contrôle | Effet | Notification |
+| --- | --- | --- | --- |
+| ERR-001 | Dépôt inaccessible | 3 tentatives espacées, version active conservée | Administrateur |
+| ERR-002 | Branche ou commit introuvable | Arrêt, version active conservée | Administrateur |
+| ERR-003 | Traduction illisible | Pages du domaine en anglais | Référent contenu |
+| ERR-004 | Traduction partielle | Page publiée avec la mention | Référent contenu |
+| ERR-005 | Page RST illisible | Page exclue, sections précédentes conservées | Référent contenu |
+| ERR-006 | Indexation ou vectorisation interrompue | Version candidate abandonnée | Administrateur |
+| ERR-007 | Page ou ancre d'une étape absente | Étape « Source introuvable » | Référent contenu |
+| ERR-008 | Pages en baisse au-delà du seuil | Publication bloquée, forçage tracé | Administrateur |
+
+Le workflow [Doc sync](.github/workflows/doc-sync.yml) l'exécute chaque dimanche à 02:00 UTC à
+partir du commit de vérification des parcours ([data/doc_version.json](data/doc_version.json)) ;
+il échoue en cas d'alerte (notification GitHub) et publie le compte rendu dans le résumé du job.
+`--notify` envoie aussi les courriels de la matrice ci-dessus et aux consultants des projets
+concernés.
+
+### Contrôle d'écart (phase 2)
+
+Le consultant saisit l'adresse de l'instance Odoo du client, la base, l'identifiant et une clé
+d'API. L'application lit la société, les modules installés, les devises, taxes, journaux,
+comptes, positions fiscales, conditions de paiement et données de stock et de fabrication, puis
+contrôle chaque étape du plan : Conforme, Écart ou Non vérifiable. Une étape Faite ou Validée en
+écart est signalée « à reprendre ». Seules les méthodes de lecture de l'API externe sont
+autorisées (RG-016) ; la clé d'API n'est pas enregistrée.
+
+## Lancer l'application
 
 Python 3.11 ou plus récent, depuis la racine du dépôt (un environnement virtuel est conseillé) :
 
@@ -148,21 +176,28 @@ pip install -e .
 ```
 
 ```bash
-python scripts/fetch_docs.py
-```
-
-```bash
-python scripts/build_index.py
+python scripts/sync_docs.py
 ```
 
 ```bash
 streamlit run app/streamlit_app.py
 ```
 
-`fetch_docs.py` télécharge les pages RST de la documentation (clone partiel, environ 16 Mo ;
-`--full` pour le dépôt complet) dans `vendor/`, qui n'est pas versionné. Les deux scripts sont
-facultatifs : si l'index est absent, l'application le construit à son premier démarrage. Pour activer les réponses rédigées, copier `.env.example` en `.env` ou
-exporter `ANTHROPIC_API_KEY` ; l'application fonctionne sans.
+La synchronisation est facultative : sans index, l'application la lance à son premier démarrage
+(clone partiel des pages RST et des traductions françaises, environ 34 Mo, dans `vendor/`, non
+versionné). La base de données SQLite est créée dans `var/assistant.db`.
+
+| Variable | Rôle |
+| --- | --- |
+| `OCA_DB` | chemin de la base de données (par défaut `var/assistant.db`) |
+| `OCA_DEMO` | `0` : base vide, installation de l'organisation et de son administrateur au premier lancement ; sinon données de démonstration |
+| `ANTHROPIC_API_KEY` | réponses rédigées par Claude (facultatif) |
+| `OCA_SMTP_PASSWORD` | mot de passe du serveur SMTP réglé dans l'écran Administration |
+| `OCA_AUTO_FETCH` | `0` : pas de téléchargement automatique de la documentation (tests) |
+
+Fournisseur d'identité de l'organisation (OIDC, facultatif) : renseigner la section `[auth]` des
+secrets Streamlit (`redirect_uri`, `cookie_secret`, `client_id`, `client_secret`,
+`server_metadata_url`) ; l'identité est rattachée au compte de même courriel.
 
 Tests et contrôle du code :
 
@@ -170,67 +205,36 @@ Tests et contrôle du code :
 pip install -e ".[dev]" && ruff check . && pytest
 ```
 
-Les tests de véracité sont ignorés proprement tant que la documentation n'est pas téléchargée.
+Les tests de véracité sont ignorés tant que la documentation n'est pas téléchargée ; le job CI
+`docs-truth` les exécute sur un clone frais, avec les données Community rafraîchies.
+
+## Démo en ligne
+
+L'application est déployée sur Streamlit Community Cloud, branche `main`. Pour redéployer :
+
+1. New app, dépôt `kamilbbm/odoo-config-assistant`, branche `main`, fichier principal
+   `app/streamlit_app.py`, Python 3.11 ou plus récent.
+2. Facultatif, dans Advanced settings, Secrets : `ANTHROPIC_API_KEY`, `OCA_SMTP_PASSWORD`,
+   section `[auth]`.
+3. Déployer. Au premier démarrage, l'application synchronise la documentation et construit les
+   index en moins d'une minute ; le résultat est gardé en cache pour la durée de vie de
+   l'instance.
+
+Sur Community Cloud, le disque n'est pas persistant : la base repart des données de
+démonstration à chaque redémarrage. Pour une utilisation réelle, pointer `OCA_DB` vers un disque
+persistant. Le job CI `app-smoke` reproduit le démarrage sur un dépôt neuf, se connecte avec le
+compte administrateur, parcourt les dix écrans et échoue si les logs contiennent une erreur.
 
 ## Architecture
 
-Modules, flux et choix techniques : [docs/architecture.md](docs/architecture.md).
-
-```
-data/journeys/*.yaml   référentiel de parcours (validé au chargement)
-src/odoo_config_assistant/
-  models.py            Profile, Step, Journey, Project, StepStatus (pydantic)
-  journeys.py          chargement et validation du YAML
-  engine.py            plan, tri topologique, statuts et règles de gestion
-  knowledge.py         découpage RST, index BM25, citations
-  assistant.py         réponse avec ou sans modèle de langage
-  export.py            cahier de paramétrage Excel et checklist
-  imports.py           modèles de fichiers d'import
-  storage.py           un fichier JSON par projet
-  sources.py           téléchargement de la documentation et construction de l'index
-scripts/               fetch_docs.py, fetch_editions.py, build_index.py, smoke_app.py,
-                       capture_screens.py
-app/streamlit_app.py   interface en français
-```
-
-## Règles de gestion couvertes
-
-Codes de la SFD (section 3.4). Chaque règle a des tests nommés d'après son code.
-
-| Règle | Énoncé (résumé) | Tests |
-| --- | --- | --- |
-| RG-001 | Un projet = un ERP et une version ; un changement de version crée un nouveau plan | `tests/test_engine.py::test_rg001_*` |
-| RG-002 | Pas de plan si pays, activité ou modules manquent ; champs manquants listés | `tests/test_engine.py::test_rg002_*` |
-| RG-003 | Fait seulement si les prérequis sont Fait ou Validé ; sinon refus avec la liste | `tests/test_engine.py::test_rg003_*` |
-| RG-005 | Le profil modifié recalcule le plan ; étapes faites conservées, non applicables en Hors périmètre | `tests/test_engine.py::test_rg005_*` |
-| RG-006 | Toute réponse cite au moins une source, sinon « non couverte » | `tests/test_knowledge.py::test_rg006_*` |
-| RG-007 | Seules les sources de la version du projet sont utilisées | `tests/test_knowledge.py::test_rg007_*` |
-| RG-008 | Réponses et fiches conservent le commit de la documentation | `tests/test_engine.py::test_rg008_*`, `tests/test_knowledge.py::test_rg008_*` |
-| RG-012 | Une étape sans source est rejetée au chargement du référentiel | `tests/test_journeys.py::test_rg012_*` |
-| RG-014 | Toute citation affiche le lien vers la page source et la licence CC BY-SA 4.0 | `tests/test_knowledge.py::test_rg014_*`, `tests/test_journeys_data.py::test_rg014_*` |
-
-## Feuille de route V1
-
-La V1 cible est décrite dans la [SFD](docs/SFD.md). Hors périmètre de la V0 :
-
-- rôles, authentification et accès par projet (F-001, RG-004, RG-015) ;
-- synchronisation planifiée de la documentation, versions candidate et active, contrôles de
-  publication (F-002, RG-009, ERR-003 à ERR-008) ;
-- recomposition française des pages et des libellés de menus depuis les fichiers .po (F-003,
-  RG-010) ;
-- alertes lorsqu'une page source d'une étape change (F-013, RG-011) ;
-- recherche sémantique en complément du BM25, derrière l'interface `Retriever` de `knowledge.py` ;
-- base de données applicative, éditeur de parcours et référentiel Domaine, Module, Processus,
-  Paramètre (F-004, F-005, E-09) ;
-- identité de l'organisation sur les livrables (F-012, RG-013) ; livrables Word ou PDF (Q-010) ;
-- contrôle d'écart avec une instance Odoo en lecture seule (phase 2, F-014, RG-016) ;
-- autres ERP (Q-012).
+Modules, flux et choix techniques : [docs/architecture.md](docs/architecture.md). Correspondance
+avec la SFD : [docs/couverture.md](docs/couverture.md).
 
 ## Licence et attribution
 
 - Code : licence MIT, voir [LICENSE](LICENSE).
 - Documentation Odoo : CC BY-SA 4.0, Odoo S.A. et contributeurs. Elle n'est pas copiée dans ce
-  dépôt ; elle est téléchargée par `scripts/fetch_docs.py`. Détails dans [NOTICE.md](NOTICE.md).
+  dépôt ; elle est téléchargée à la synchronisation. Détails dans [NOTICE.md](NOTICE.md).
 - Odoo est une marque d'Odoo S.A. Ce projet est indépendant.
 - Toutes les données de démonstration sont fictives.
 

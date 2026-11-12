@@ -13,9 +13,12 @@ import yaml
 from pydantic import ValidationError
 
 from odoo_config_assistant.models import Catalog, Journey
+from odoo_config_assistant.referential import Referential
 
 DEFAULT_JOURNEYS_DIR = Path(__file__).resolve().parents[2] / "data" / "journeys"
 DEFAULT_EDITIONS_FILE = DEFAULT_JOURNEYS_DIR.parent / "editions.json"
+DEFAULT_REFERENTIAL_FILE = DEFAULT_JOURNEYS_DIR.parent / "referential.yaml"
+REFERENTIAL_NAME = "referential.yaml"
 
 
 class JourneyValidationError(ValueError):
@@ -26,17 +29,27 @@ class JourneyValidationError(ValueError):
         super().__init__("Référentiel de parcours invalide :\n- " + "\n- ".join(errors))
 
 
-def load_journey(path: Path) -> Journey:
-    with path.open(encoding="utf-8") as handle:
-        raw = yaml.safe_load(handle)
+def parse_journey(text: str, name: str) -> Journey:
+    raw = yaml.safe_load(text)
     try:
         return Journey.model_validate(raw)
     except ValidationError as exc:
         errors = [
-            f"{path.name} : {'.'.join(str(p) for p in err['loc'])} : {err['msg']}"
+            f"{name} : {'.'.join(str(p) for p in err['loc'])} : {err['msg']}"
             for err in exc.errors()
         ]
         raise JourneyValidationError(errors) from exc
+
+
+def load_journey(path: Path) -> Journey:
+    return parse_journey(path.read_text(encoding="utf-8"), path.name)
+
+
+def parse_referential(text: str) -> Referential:
+    try:
+        return Referential.model_validate(yaml.safe_load(text))
+    except (ValidationError, yaml.YAMLError) as exc:
+        raise JourneyValidationError([f"{REFERENTIAL_NAME} : {exc}"]) from exc
 
 
 def load_community_modules(path: Path = DEFAULT_EDITIONS_FILE) -> frozenset[str] | None:
@@ -46,27 +59,74 @@ def load_community_modules(path: Path = DEFAULT_EDITIONS_FILE) -> frozenset[str]
     return frozenset(json.loads(path.read_text(encoding="utf-8"))["community_modules"])
 
 
+def repository_files(
+    directory: Path = DEFAULT_JOURNEYS_DIR, referential_file: Path = DEFAULT_REFERENTIAL_FILE
+) -> dict[str, str]:
+    """Shipped repository: ``journeys/<file>.yaml`` and ``referential.yaml`` texts."""
+    files = {
+        f"journeys/{path.name}": path.read_text(encoding="utf-8")
+        for path in sorted(directory.glob("*.yaml"))
+    }
+    if referential_file.is_file():
+        files[REFERENTIAL_NAME] = referential_file.read_text(encoding="utf-8")
+    return files
+
+
 def load_catalog(
-    directory: Path = DEFAULT_JOURNEYS_DIR, editions_file: Path = DEFAULT_EDITIONS_FILE
+    directory: Path = DEFAULT_JOURNEYS_DIR,
+    editions_file: Path = DEFAULT_EDITIONS_FILE,
+    overrides: dict[str, str | None] | None = None,
+    referential_file: Path = DEFAULT_REFERENTIAL_FILE,
 ) -> Catalog:
-    """Load every ``*.yaml`` journey of ``directory`` and validate them together."""
+    """Load the journeys and the business repository and validate them together.
+
+    ``overrides`` (E-09 edits stored in the database) replace or add files by name
+    (``journeys/<id>.yaml``, ``referential.yaml``); a ``None`` value removes a journey.
+    """
+    files = repository_files(directory, referential_file)
+    for name, text in (overrides or {}).items():
+        if text is None:
+            files.pop(name, None)
+        else:
+            files[name] = text
     errors: list[str] = []
     journeys: list[Journey] = []
-    for path in sorted(directory.glob("*.yaml")):
+    referential = None
+    for name, text in sorted(files.items()):
         try:
-            journeys.append(load_journey(path))
+            if name == REFERENTIAL_NAME:
+                referential = parse_referential(text)
+            else:
+                journeys.append(parse_journey(text, name.removeprefix("journeys/")))
         except JourneyValidationError as exc:
             errors.extend(exc.errors)
     if errors:
         raise JourneyValidationError(errors)
-    catalog = Catalog(journeys=journeys, community_modules=load_community_modules(editions_file))
+    catalog = Catalog(
+        journeys=journeys,
+        community_modules=load_community_modules(editions_file),
+        referential=referential,
+    )
     validate_catalog(catalog)
     return catalog
 
 
 def validate_catalog(catalog: Catalog) -> None:
-    """Cross-journey checks: unique ids, existing prerequisites, no cycle."""
+    """Cross-journey checks: unique ids, existing prerequisites, no cycle, known parameters."""
     errors: list[str] = []
+    paths = catalog.referential.paths() if catalog.referential else None
+    for journey in catalog.journeys:
+        for step in journey.steps:
+            if paths is None or step.parameter is None:
+                continue
+            path = paths.get(step.parameter)
+            if path is None:
+                errors.append(f"étape {step.id} : paramètre inconnu : {step.parameter}")
+            elif path.domain.label != journey.domain:
+                errors.append(
+                    f"étape {step.id} : paramètre du domaine {path.domain.label}, parcours du "
+                    f"domaine {journey.domain}"
+                )
     seen: dict[str, str] = {}
     graph: dict[str, list[str]] = {}
     for journey in catalog.journeys:

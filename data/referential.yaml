@@ -1,0 +1,327 @@
+# Référentiel métier (F-004) : Domaine > Module > Processus > Paramètre, Odoo 18.
+# Chaque paramètre est rattaché à des pages de la documentation (unités indexées) ; chaque étape
+# de parcours est rattachée à un paramètre (champ parameter). Les domaines sans parcours
+# modélisé sont listés pour structurer la suite (SFD 1.1).
+
+erp: odoo
+version: '18.0'
+domains:
+- id: finance
+  label: Finance
+  modules:
+  - id: accounting
+    label: Comptabilité
+    odoo_modules:
+    - account
+    - account_accountant
+    processes:
+    - id: fiscal_setup
+      label: Paramétrage fiscal
+      parameters:
+      - id: company_identity
+        label: Identité légale de la société
+        sources:
+        - content/applications/finance/fiscal_localizations/france.rst
+        - content/applications/general/companies.rst
+      - id: fiscal_localization
+        label: Localisation fiscale
+        sources:
+        - content/applications/finance/fiscal_localizations.rst
+        - content/applications/finance/fiscal_localizations/canada.rst
+        - content/applications/finance/fiscal_localizations/france.rst
+      - id: taxes
+        label: Taxes de vente et d'achat
+        sources:
+        - content/applications/finance/accounting/taxes.rst
+        - content/applications/finance/fiscal_localizations/canada.rst
+        - content/applications/finance/fiscal_localizations/france.rst
+      - id: fiscal_positions
+        label: Positions fiscales
+        sources:
+        - content/applications/finance/accounting/taxes/fiscal_positions.rst
+        - content/applications/finance/fiscal_localizations/canada.rst
+        - content/applications/finance/fiscal_localizations/france.rst
+      - id: tax_returns
+        label: Déclarations de taxes
+        sources:
+        - content/applications/finance/accounting/reporting/tax_returns.rst
+        - content/applications/finance/fiscal_localizations/france.rst
+    - id: accounting_structure
+      label: Structure comptable
+      parameters:
+      - id: main_currency
+        label: Devise principale
+        sources:
+        - content/applications/finance/accounting/get_started/multi_currency.rst
+      - id: foreign_currencies
+        label: Devises étrangères
+        sources:
+        - content/applications/finance/accounting/get_started/multi_currency.rst
+      - id: fiscal_year
+        label: Exercice fiscal
+        sources:
+        - content/applications/finance/accounting/get_started.rst
+        - content/applications/finance/accounting/reporting/year_end.rst
+      - id: chart_of_accounts
+        label: Plan comptable
+        sources:
+        - content/applications/finance/accounting/get_started/chart_of_accounts.rst
+        - content/applications/finance/fiscal_localizations/canada.rst
+        - content/applications/finance/fiscal_localizations/france.rst
+      - id: journals
+        label: Journaux
+        sources:
+        - content/applications/finance/accounting/get_started/journals.rst
+      - id: opening_balances
+        label: Soldes d'ouverture
+        sources:
+        - content/applications/finance/accounting/get_started.rst
+        - content/applications/finance/accounting/get_started/chart_of_accounts.rst
+        - content/applications/finance/fiscal_localizations/france.rst
+    - id: treasury
+      label: Trésorerie et paiements
+      parameters:
+      - id: bank_accounts
+        label: Comptes bancaires
+        sources:
+        - content/applications/finance/accounting/get_started.rst
+      - id: payment_terms
+        label: Conditions de paiement
+        sources:
+        - content/applications/finance/accounting/customer_invoices/payment_terms.rst
+        - content/applications/finance/fiscal_localizations/canada.rst
+      - id: check_printing
+        label: Impression des chèques
+        sources:
+        - content/applications/finance/fiscal_localizations/canada.rst
+      - id: sepa_payments
+        label: Paiements SEPA
+        sources:
+        - content/applications/finance/accounting/payments/sepa_payments.rst
+    - id: e_invoicing
+      label: Facturation électronique
+      parameters:
+      - id: e_invoicing_network
+        label: Réseau de facturation électronique
+        sources:
+        - content/applications/finance/fiscal_localizations/france.rst
+      - id: public_sector_invoicing
+        label: Factures au secteur public
+        sources:
+        - content/applications/finance/fiscal_localizations/france.rst
+    - id: closing
+      label: Clôture et reporting
+      parameters:
+      - id: financial_reports
+        label: Rapports financiers
+        sources:
+        - content/applications/finance/fiscal_localizations/canada.rst
+      - id: audit_file
+        label: Fichier des écritures comptables
+        sources:
+        - content/applications/finance/fiscal_localizations/france.rst
+      - id: lock_dates
+        label: Clôture et verrouillage
+        sources:
+        - content/applications/finance/accounting/reporting/year_end.rst
+        - content/applications/finance/fiscal_localizations/france.rst
+- id: sales
+  label: Ventes
+  modules:
+  - id: sales
+    label: Ventes
+    odoo_modules:
+    - sale
+    processes: []
+  - id: crm
+    label: CRM
+    odoo_modules:
+    - crm
+    processes: []
+  - id: point_of_sale
+    label: Point de vente
+    odoo_modules:
+    - point_of_sale
+    processes: []
+- id: services
+  label: Services
+  modules:
+  - id: project
+    label: Projet
+    odoo_modules:
+    - project
+    processes: []
+  - id: timesheets
+    label: Feuilles de temps
+    odoo_modules:
+    - hr_timesheet
+    processes: []
+  - id: helpdesk
+    label: Assistance
+    odoo_modules:
+    - helpdesk
+    processes: []
+- id: supply_chain
+  label: Supply chain
+  modules:
+  - id: inventory
+    label: Inventaire
+    odoo_modules:
+    - stock
+    processes:
+    - id: warehouses
+      label: Entrepôts et emplacements
+      parameters:
+      - id: warehouse
+        label: Entrepôt
+        sources:
+        - content/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/warehouses.rst
+      - id: locations
+        label: Emplacements
+        sources:
+        - content/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/use_locations.rst
+    - id: logistics_flows
+      label: Flux logistiques
+      parameters:
+      - id: routes
+        label: Routes
+        sources:
+        - content/applications/inventory_and_mrp/inventory/shipping_receiving/daily_operations/use_routes.rst
+      - id: receipts
+        label: Réceptions
+        sources:
+        - content/applications/inventory_and_mrp/inventory/shipping_receiving/daily_operations/receipts_delivery_one_step.rst
+        - content/applications/inventory_and_mrp/inventory/shipping_receiving/daily_operations/receipts_delivery_two_steps.rst
+        - content/applications/inventory_and_mrp/inventory/shipping_receiving/daily_operations/receipts_three_steps.rst
+      - id: deliveries
+        label: Livraisons
+        sources:
+        - content/applications/inventory_and_mrp/inventory/shipping_receiving/daily_operations/delivery_three_steps.rst
+        - content/applications/inventory_and_mrp/inventory/shipping_receiving/daily_operations/receipts_delivery_two_steps.rst
+    - id: products
+      label: Articles
+      parameters:
+      - id: units_of_measure
+        label: Unités de mesure
+        sources:
+        - content/applications/inventory_and_mrp/inventory/product_management/configure/uom.rst
+      - id: product_categories
+        label: Catégories et valorisation
+        sources:
+        - content/applications/inventory_and_mrp/inventory/product_management/inventory_valuation/inventory_valuation_config.rst
+      - id: traceability
+        label: Traçabilité
+        sources:
+        - content/applications/inventory_and_mrp/inventory/product_management/product_tracking/lots.rst
+    - id: replenishment
+      label: Réapprovisionnement
+      parameters:
+      - id: reordering_rules
+        label: Règles de réapprovisionnement
+        sources:
+        - content/applications/inventory_and_mrp/inventory/warehouses_storage/replenishment/reordering_rules.rst
+      - id: make_to_order
+        label: Fabrication à la commande
+        sources:
+        - content/applications/inventory_and_mrp/inventory/warehouses_storage/replenishment/mto.rst
+    - id: stock_counting
+      label: Inventaire physique
+      parameters:
+      - id: initial_quantities
+        label: Stock initial
+        sources:
+        - content/applications/inventory_and_mrp/inventory/warehouses_storage/inventory_management/count_products.rst
+  - id: purchase
+    label: Achats
+    odoo_modules:
+    - purchase
+    processes:
+    - id: procurement
+      label: Approvisionnement
+      parameters:
+      - id: purchased_components
+        label: Composants achetés
+        sources:
+        - content/applications/inventory_and_mrp/inventory/warehouses_storage/replenishment/lead_times.rst
+        - content/applications/inventory_and_mrp/inventory/warehouses_storage/replenishment/reordering_rules.rst
+  - id: manufacturing
+    label: Fabrication
+    odoo_modules:
+    - mrp
+    processes:
+    - id: master_data
+      label: Données techniques
+      parameters:
+      - id: work_centers
+        label: Postes de travail
+        sources:
+        - content/applications/inventory_and_mrp/manufacturing/advanced_configuration/using_work_centers.rst
+      - id: manufactured_products
+        label: Produits fabriqués
+        sources:
+        - content/applications/inventory_and_mrp/manufacturing/basic_setup/configure_manufacturing_product.rst
+      - id: bills_of_materials
+        label: Nomenclatures
+        sources:
+        - content/applications/inventory_and_mrp/manufacturing/basic_setup/bill_configuration.rst
+    - id: production
+      label: Production
+      parameters:
+      - id: work_orders
+        label: Ordres de travail
+        sources:
+        - content/applications/inventory_and_mrp/manufacturing/advanced_configuration/using_work_centers.rst
+        - content/applications/inventory_and_mrp/manufacturing/basic_setup/bill_configuration.rst
+      - id: manufacturing_steps
+        label: Étapes de fabrication
+        sources:
+        - content/applications/inventory_and_mrp/manufacturing/basic_setup/one_step_manufacturing.rst
+        - content/applications/inventory_and_mrp/manufacturing/basic_setup/two_step_manufacturing.rst
+      - id: first_manufacturing_order
+        label: Premier ordre de fabrication
+        sources:
+        - content/applications/inventory_and_mrp/manufacturing/basic_setup/one_step_manufacturing.rst
+- id: hr
+  label: RH
+  modules:
+  - id: employees
+    label: Employés
+    odoo_modules:
+    - hr
+    processes: []
+  - id: payroll
+    label: Paie
+    odoo_modules:
+    - hr_payroll
+    processes: []
+  - id: time_off
+    label: Congés
+    odoo_modules:
+    - hr_holidays
+    processes: []
+- id: marketing
+  label: Marketing
+  modules:
+  - id: email_marketing
+    label: Marketing par courriel
+    odoo_modules:
+    - mass_mailing
+    processes: []
+  - id: marketing_automation
+    label: Automatisation marketing
+    odoo_modules:
+    - marketing_automation
+    processes: []
+- id: website
+  label: Site web
+  modules:
+  - id: website
+    label: Site web
+    odoo_modules:
+    - website
+    processes: []
+  - id: ecommerce
+    label: eCommerce
+    odoo_modules:
+    - website_sale
+    processes: []

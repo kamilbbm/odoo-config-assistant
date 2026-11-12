@@ -1,0 +1,41 @@
+name: Doc sync
+
+# Synchronisation planifiée de la documentation (F-002, SFD 3.3.3) : dimanche 02:00 UTC.
+# La version active de départ est le commit contre lequel les parcours ont été vérifiés
+# (data/doc_version.json) ; la synchronisation récupère la tête de la branche 18.0, applique les
+# contrôles (RG-009) et liste les étapes dont une page source a changé (RG-011). Le job échoue
+# en cas d'alerte : GitHub notifie alors le propriétaire du dépôt. Compte rendu dans le résumé
+# du job et en artefact.
+
+on:
+  schedule:
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e .
+      - name: Active version = commit de vérification des parcours
+        run: |
+          commit=$(python -c 'import json; print(json.load(open("data/doc_version.json"))["commit"])')
+          python scripts/sync_docs.py --trigger "référence" --commit "$commit"
+      - name: Synchronisation planifiée
+        run: >-
+          python scripts/sync_docs.py --trigger planifiée
+          --summary "$GITHUB_STEP_SUMMARY" --fail-on-alert
+      - name: Comptes rendus
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-reports
+          path: index/sync/reports/

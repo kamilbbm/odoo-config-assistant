@@ -286,7 +286,7 @@ def test_real_index_does_not_cover_quebec_payroll_or_qst_rate():
     ("question", "section"),
     [
         ("Comment activer la facturation électronique en France ?", "Configuration"),
-        ("Comment générer le FEC ?", "FEC Export"),
+        ("Comment générer le FEC ?", "Export FEC"),
         ("Comment transmettre la liasse fiscale ?", "Liasse fiscale"),
     ],
 )

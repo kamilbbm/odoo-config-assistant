@@ -17,6 +17,7 @@ applies_when:
 steps:
 - id: frf_company
   title: Fiche de la société
+  parameter: company_identity
   objective: 'Renseigner l''identité légale de la société : raison sociale, adresse en France, numéro
     de TVA, numéro d''immatriculation et SIRET. Ces données alimentent les factures, la facturation électronique
     et Chorus Pro.'
@@ -40,6 +41,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/france.html#localizations-france-e-invoicing-choruspro-invoices
 - id: frf_localization
   title: Paquet de localisation français
+  parameter: fiscal_localization
   objective: 'Vérifier que le paquet de localisation fiscale France est installé : il fournit le plan
     comptable, les taxes, les positions fiscales et les rapports français.'
   menu_path: Accounting > Configuration > Settings
@@ -64,6 +66,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/france.html#localizations-france-configuration-modules
 - id: frf_main_currency
   title: Devise principale
+  parameter: main_currency
   objective: Confirmer la devise de tenue de la comptabilité. Elle est définie par défaut selon le pays
     de la société.
   menu_path: Accounting > Configuration > Settings > Currencies
@@ -81,6 +84,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started/multi_currency.html#multi-currency-config-main-currency
 - id: frf_foreign_currencies
   title: Devises étrangères
+  parameter: foreign_currencies
   objective: Activer les devises dans lesquelles la société facture ou achète, en plus de l'euro.
   menu_path: Accounting > Configuration > Currencies
   recommendations:
@@ -96,6 +100,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started/multi_currency.html#multi-currency-config-enable
 - id: frf_fiscal_year
   title: Exercice fiscal
+  parameter: fiscal_year
   objective: Définir les dates d'ouverture et de clôture de l'exercice, utilisées pour générer les rapports,
     le FEC et la liasse fiscale.
   menu_path: Accounting > Configuration > Settings > Fiscal Periods
@@ -118,6 +123,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/reporting/year_end.html#year-end-fiscal-years
 - id: frf_chart_of_accounts
   title: Plan comptable français
+  parameter: chart_of_accounts
   objective: Revoir le plan comptable installé par la localisation et l'adapter à la société sans casser
     les comptes utilisés par Odoo.
   menu_path: Accounting > Configuration > Chart of Accounts
@@ -139,6 +145,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started/chart_of_accounts.html
 - id: frf_taxes
   title: Taxes de TVA
+  parameter: taxes
   objective: Vérifier et activer les taxes de vente et d'achat créées par la localisation (TVA à taux
     normal, réduits, taux zéro et exonérations), puis définir les taxes par défaut des nouveaux articles.
   menu_path: Accounting > Configuration > Taxes
@@ -162,6 +169,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/france.html#localizations-france-loc-overview
 - id: frf_fiscal_positions
   title: Positions fiscales
+  parameter: fiscal_positions
   objective: Adapter automatiquement les taxes et les comptes selon le client ou le fournisseur (France,
     Union européenne, hors Union européenne).
   menu_path: Accounting > Configuration > Fiscal Positions
@@ -184,6 +192,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/france.html#localizations-france-loc-overview
 - id: frf_tax_periodicity
   title: Périodicité des déclarations de TVA
+  parameter: tax_returns
   objective: Paramétrer la fréquence des déclarations de TVA, le rappel et le journal de comptabilisation,
     pour qu'Odoo calcule la déclaration sur la bonne période.
   menu_path: Accounting > Configuration > Settings
@@ -204,6 +213,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/reporting/tax_returns.html#tax-returns-periodicity
 - id: frf_journals
   title: Journaux
+  parameter: journals
   objective: 'Vérifier les journaux comptables qui classent les écritures : banque, caisse, carte de crédit,
     ventes, achats et opérations diverses.'
   menu_path: Accounting > Configuration > Journals
@@ -218,6 +228,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started/journals.html
 - id: frf_bank_account
   title: Comptes bancaires
+  parameter: bank_accounts
   objective: Relier chaque compte bancaire de la société à un journal de banque, avec synchronisation
     automatique des relevés si l'établissement est proposé.
   menu_path: Accounting > Configuration > Add a Bank Account
@@ -234,6 +245,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started.html#accounting-setup-bank
 - id: frf_sepa
   title: Paiements SEPA
+  parameter: sepa_payments
   objective: Payer les fournisseurs par virement SEPA (SCT) et, si la société encaisse par prélèvement,
     gérer les mandats SEPA (SDD). Ces moyens de paiement ne valent que pour l'euro.
   menu_path: Accounting > Configuration > Settings
@@ -260,6 +272,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/payments/sepa_payments.html#accounting-sepa-payments-sdd-configuration
 - id: frf_opening_balances
   title: Soldes d'ouverture et reprise de l'historique
+  parameter: opening_balances
   objective: Reprendre les soldes de départ, ou l'historique des écritures, à la date de bascule pour
     que la balance d'Odoo corresponde à la comptabilité précédente.
   menu_path: Accounting > Configuration > Settings
@@ -298,6 +311,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/get_started.html#accounting-setup-chart
 - id: frf_payment_terms
   title: Conditions de paiement
+  parameter: payment_terms
   objective: Définir les conditions de paiement (échéances, escomptes) utilisées sur les commandes, factures
     et factures fournisseurs.
   menu_path: Accounting > Configuration > Payment Terms
@@ -316,6 +330,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/accounting/customer_invoices/payment_terms.html#accounting-payment-terms-configuration
 - id: frf_e_invoicing
   title: Facturation électronique (plateforme agréée)
+  parameter: e_invoicing_network
   objective: Inscrire la société sur le réseau de facturation électronique via Odoo, plateforme agréée,
     pour recevoir et émettre les factures B2B domestiques et transmettre l'e-reporting.
   menu_path: Accounting > Configuration > Settings
@@ -347,6 +362,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/france.html#localizations-france-e-invoicing-fac-elec-reporting
 - id: frf_chorus_pro
   title: Factures au secteur public (Chorus Pro)
+  parameter: public_sector_invoicing
   objective: Envoyer les factures aux entités publiques sur Chorus Pro, obligatoire pour les transactions
     B2G depuis janvier 2020, via le réseau Peppol.
   menu_path: Accounting > Configuration > Settings
@@ -374,6 +390,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/france.html#localizations-france-e-invoicing-choruspro-contacts
 - id: frf_tax_report
   title: Rapports et déclaration de TVA
+  parameter: tax_returns
   objective: Vérifier que les taxes alimentent les bonnes grilles du rapport de taxes français avant la
     première déclaration, et que le bilan et le compte de résultat français sont disponibles.
   menu_path: Accounting > Reporting > Tax Return
@@ -397,6 +414,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/france.html#localizations-france-reporting
 - id: frf_fec_export
   title: Fichier des écritures comptables (FEC)
+  parameter: audit_file
   objective: Vérifier que la société peut produire le FEC, exigé par l'administration fiscale en cas de
     contrôle, avant la première clôture.
   menu_path: Accounting > Reporting > General Ledger
@@ -419,6 +437,7 @@ steps:
     url: https://www.odoo.com/documentation/18.0/fr/applications/finance/fiscal_localizations/france.html#localizations-france-fec
 - id: frf_year_end
   title: Clôture, liasse fiscale et verrouillage
+  parameter: lock_dates
   objective: Préparer la clôture de l'exercice, transmettre la liasse fiscale par Teledec synchronisé
     avec Odoo, puis empêcher la modification des écritures de la période close.
   menu_path: Accounting > Accounting > Lock Dates

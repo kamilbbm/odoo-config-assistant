@@ -19,6 +19,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from odoo_config_assistant.db import Organisation
 from odoo_config_assistant.models import LICENSE_NOTICE, Catalog, Project, Source
 
 DEFAULT_TEMPLATES_FILE = Path(__file__).resolve().parents[2] / "data" / "import_templates.yaml"
@@ -90,7 +91,10 @@ def load_import_templates(path: Path = DEFAULT_TEMPLATES_FILE) -> ImportCatalog:
 
 
 def template_workbook(
-    template: ImportTemplate, imports: ImportCatalog, catalog: Catalog
+    template: ImportTemplate,
+    imports: ImportCatalog,
+    catalog: Catalog,
+    organisation: Organisation | None = None,
 ) -> Workbook:
     workbook = Workbook()
     sheet = workbook.active
@@ -107,7 +111,8 @@ def template_workbook(
     steps = ", ".join(
         f"{catalog.step(s).title} ({s})" for s in template.steps if _known(catalog, s)
     )
-    intro = [
+    intro = [("Organisation", organisation.name)] if organisation is not None else []
+    intro += [
         ("Modèle d'import", template.title),
         ("Objet Odoo", template.model),
         ("Étapes du plan", steps),
@@ -143,7 +148,10 @@ def _known(catalog: Catalog, step_id: str) -> bool:
 
 
 def export_templates_zip(
-    project: Project, catalog: Catalog, imports: ImportCatalog | None = None
+    project: Project,
+    catalog: Catalog,
+    imports: ImportCatalog | None = None,
+    organisation: Organisation | None = None,
 ) -> bytes:
     """ZIP of the import templates relevant to the project plan."""
     imports = imports or load_import_templates()
@@ -151,6 +159,6 @@ def export_templates_zip(
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for template in imports.for_project(project):
             content = BytesIO()
-            template_workbook(template, imports, catalog).save(content)
+            template_workbook(template, imports, catalog, organisation).save(content)
             archive.writestr(template.filename, content.getvalue())
     return buffer.getvalue()

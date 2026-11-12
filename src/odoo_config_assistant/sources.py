@@ -9,6 +9,7 @@ instead of the full repository with its images.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from datetime import UTC, datetime
@@ -16,13 +17,21 @@ from pathlib import Path
 
 from odoo_config_assistant import DOC_VERSION
 from odoo_config_assistant.journeys import load_catalog
-from odoo_config_assistant.knowledge import DEFAULT_INDEX_PATH, KnowledgeIndex, build_index
+from odoo_config_assistant.knowledge import (
+    DEFAULT_INDEX_PATH,
+    DEFAULT_TRANSLATION_THRESHOLD,
+    KnowledgeIndex,
+    build_index,
+)
+from odoo_config_assistant.models import Catalog
+from odoo_config_assistant.translation import LOCALE_DIR, Translations, load_translations
 
 ROOT = Path(__file__).resolve().parents[2]
 REPO_URL = "https://github.com/odoo/documentation"
 DEFAULT_DOCS_DIR = ROOT / "vendor" / "odoo-docs"
 BASE_SCOPE = ["content/applications/finance", "content/applications/inventory_and_mrp"]
-RST_ONLY_PATTERNS = ["/content/**/*.rst"]
+# Pages RST et traductions françaises (F-003) : environ 34 Mo au lieu du dépôt complet.
+RST_ONLY_PATTERNS = ["/content/**/*.rst", "/locale/fr/LC_MESSAGES/*.po"]
 
 
 def version_file(dest: Path) -> Path:
@@ -41,8 +50,13 @@ def fetch_docs(
     branch: str = DOC_VERSION,
     repo: str = REPO_URL,
     rst_only: bool = True,
+    commit: str | None = None,
 ) -> dict:
-    """Clone (shallow) or update the documentation, then record the commit used."""
+    """Clone (shallow) or update the documentation, then record the commit used.
+
+    ``commit`` checks out that commit of the branch instead of its tip (for example the commit
+    the journeys were verified against, data/doc_version.json).
+    """
     try:
         heads = _git("ls-remote", "--heads", repo, branch)
     except RuntimeError as exc:
@@ -51,6 +65,8 @@ def fetch_docs(
         raise SystemExit(f"ERR-002 branche introuvable : {branch} sur {repo}")
 
     if (dest / ".git").is_dir():
+        if rst_only and _git("config", "--get", "core.sparseCheckout", cwd=dest) == "true":
+            _git("sparse-checkout", "set", "--no-cone", *RST_ONLY_PATTERNS, cwd=dest)
         _git("fetch", "--depth", "1", "origin", branch, cwd=dest)
         _git("checkout", "-q", "-B", branch, "FETCH_HEAD", cwd=dest)
     elif rst_only:
@@ -64,6 +80,12 @@ def fetch_docs(
     else:
         dest.parent.mkdir(parents=True, exist_ok=True)
         _git("clone", "-q", "--depth", "1", "--branch", branch, repo, str(dest))
+    if commit:
+        try:
+            _git("fetch", "-q", "--depth", "1", "origin", commit, cwd=dest)
+        except RuntimeError as exc:
+            raise SystemExit(f"ERR-002 commit introuvable : {commit} sur {repo} ({exc})") from exc
+        _git("checkout", "-q", "-B", branch, "FETCH_HEAD", cwd=dest)
 
     info = {
         "repo": repo,
@@ -76,25 +98,67 @@ def fetch_docs(
     return info
 
 
+def page_hashes(docs: Path) -> dict[str, str]:
+    """SHA-256 of every RST page and French .po file of the clone, by relative path."""
+    files = sorted((docs / "content").rglob("*.rst"))
+    files += sorted((docs / LOCALE_DIR).glob("*.po"))
+    return {
+        path.relative_to(docs).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in files
+    }
+
+
 def build_knowledge_index(
-    docs: Path = DEFAULT_DOCS_DIR, out: Path = DEFAULT_INDEX_PATH
+    docs: Path = DEFAULT_DOCS_DIR,
+    out: Path | None = DEFAULT_INDEX_PATH,
+    previous: KnowledgeIndex | None = None,
+    errors: list[tuple[str, str]] | None = None,
+    translations: Translations | None = None,
+    threshold: float = DEFAULT_TRANSLATION_THRESHOLD,
+    catalog: Catalog | None = None,
 ) -> KnowledgeIndex:
-    """Index finance, inventory_and_mrp and every page cited by the journeys."""
+    """Index finance, inventory_and_mrp and every page cited by the journeys.
+
+    The pages are recomposed in French from the .po files of the clone when present (F-003).
+    ``out=None`` builds without writing (candidate version of a synchronization).
+    """
     path = version_file(docs)
     if not path.exists():
         raise FileNotFoundError("Documentation absente : lancer d'abord scripts/fetch_docs.py")
     info = json.loads(path.read_text(encoding="utf-8"))
-    catalog = load_catalog()
+    catalog = catalog or load_catalog()
     cited = sorted({s.path for j in catalog.journeys for step in j.steps for s in step.sources})
-    index = build_index(docs, info["commit"], [*BASE_SCOPE, *cited], version=info["branch"])
-    index.save(out)
+    if translations is None and (docs / LOCALE_DIR).is_dir():
+        translations = load_translations(docs)
+    index = build_index(
+        docs,
+        info["commit"],
+        [*BASE_SCOPE, *cited],
+        version=info["branch"],
+        previous=previous,
+        errors=errors,
+        translations=translations,
+        threshold=threshold,
+    )
+    index.page_hashes = page_hashes(docs)
+    if out is not None:
+        index.save(out)
     return index
 
 
 def ensure_index(docs: Path = DEFAULT_DOCS_DIR, out: Path = DEFAULT_INDEX_PATH) -> KnowledgeIndex:
-    """Load the index, building it (and downloading the documentation) if it is missing."""
+    """Load the active index; if there is none, run a first synchronization (source creation).
+
+    The synchronization downloads the documentation, builds the index, runs the controls and
+    writes a report (sync.py). It raises if no index could be published.
+    """
     if out.exists():
         return KnowledgeIndex.load(out)
-    if not version_file(docs).exists():
-        fetch_docs(docs)
-    return build_knowledge_index(docs, out)
+    from odoo_config_assistant.sync import SyncSettings, synchronize
+
+    settings = SyncSettings(retries=1)
+    report = synchronize(docs, out, trigger="création de la source", settings=settings)
+    if not out.exists():
+        problems = "; ".join(f"{a.code} {a.message}" for a in report.anomalies) or "inconnue"
+        raise RuntimeError(f"Index indisponible : {problems}")
+    return KnowledgeIndex.load(out)
